@@ -1,13 +1,22 @@
 [project]
 name = "esp32-llm"
 version = "0.1.0"
-description = "Add your description here"
+description = "28.9M-parameter Indonesian chat model running on an ESP32-S3 (Per-Layer Embeddings, flash-resident table)"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "numpy>=2.5.1",
+    "pandas>=2.2",
+    "pyarrow>=15",
+    "pyserial>=3.5",
     "requests>=2.34.2",
     "tokenizers>=0.23.1",
     "torch>=2.13.0",
     "tqdm>=4.69.0",
 ]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
