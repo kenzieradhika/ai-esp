@@ -28,3 +28,7 @@ videos/
 
 # build artifacts
 build/
+
+# logs
+training.log
+*.log
