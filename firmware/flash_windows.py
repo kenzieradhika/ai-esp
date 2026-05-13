@@ -13,7 +13,6 @@ Press-and-hold BOOT, tap RST/EN, release BOOT while the script is waiting.
 
 import glob
 import os
-import shutil
 import subprocess
 import sys
 import time
