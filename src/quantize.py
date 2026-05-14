@@ -12,13 +12,11 @@ Norms stay fp32 (tiny, and quantizing them is never worth it).
 """
 
 import argparse
-import glob
 import math
 import os
 
 import numpy as np
 import torch
-import torch.nn as nn
 
 from model import Config, TinyLM
 
