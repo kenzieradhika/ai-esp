@@ -22,7 +22,7 @@ import numpy as np
 import torch
 
 from model import Config, TinyLM
-from quantize import quantize_groupwise
+
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 RUNS = os.path.join(HERE, "..", "runs")
