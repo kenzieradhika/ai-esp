@@ -9,7 +9,7 @@ import time
 import numpy as np
 import torch
 
-from model import Config, TinyLM, make_model
+from model import Config, make_model
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DATA = os.path.join(HERE, "..", "data")
