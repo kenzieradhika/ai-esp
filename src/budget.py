@@ -30,7 +30,6 @@ FLASH_BYTES = 15 * 1024 * 1024  # 16MB minus ~1MB firmware.
 # HISTORICAL PLANNING NUMBERS, kept so early sizing decisions stay reproducible.
 # Real measurements exist now (RESULTS.md): PSRAM 60.7 MB/s, flash 20.3us/512B
 # random read, ~9.5 tok/s end to end. This file is not deployment authority.
-PSRAM_BW = 60e6  # bytes/sec
 FLASH_BW = 60e6  # bytes/sec, sequential
 
 
