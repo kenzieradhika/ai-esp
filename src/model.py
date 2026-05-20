@@ -300,6 +300,11 @@ def make_model(arm, target_core, base: Config = None, verbose=True, fixed_ffn=No
                 best = trial
             else:
                 break
+        if best is None:
+            # Even the narrowest width already exceeds the allowance (tiny target
+            # core or huge table budget). Fall back to the base width rather than
+            # crashing on a None config.
+            best = Config(**{**cfg.__dict__, "arm": "baseline", "ffn_hidden": 2 * cfg.d_model})
         cfg = best
     else:
         lo, hi = 1, 64 * cfg.d_model
