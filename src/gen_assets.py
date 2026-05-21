@@ -11,10 +11,10 @@ import os
 from tokenizers import Tokenizer
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-TOK = os.path.join(HERE, "..", "data", "bpe32768.json")
+TOK = os.path.join(HERE, "..", "data", "bpe_id32768.json")
 OUT = os.path.join(HERE, "..", "firmware", "esp32_llm", "vocab.h")
 OUT_BPE = os.path.join(HERE, "..", "firmware", "esp32_llm", "bpe.h")
-PROMPT = "Once upon a time"
+PROMPT = "user: halo\nJawaban:"
 
 
 def bytes_to_unicode():
