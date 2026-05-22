@@ -158,7 +158,7 @@ static inline void matvec_q(const QT *t, const float *x, float *y) {
 // ONLY approximation vs matvec_q is int8 activations, which the host golden
 // measures. Split into quantize + ranged-dot so the parallel head can quantize
 // once and let both cores read the shared int8 activations.
-static void quantize_act(const float *x, int n, int8_t *xq, float *x_scale) {
+static inline void quantize_act(const float *x, int n, int8_t *xq, float *x_scale) {
   float xmax = 1e-8f;
   for (int j = 0; j < n; j++) { float a = fabsf(x[j]); if (a > xmax) xmax = a; }
   float inv = 127.f / xmax;
@@ -169,9 +169,9 @@ static void quantize_act(const float *x, int n, int8_t *xq, float *x_scale) {
   *x_scale = xmax / 127.f;
 }
 
+#ifdef LLM_INT8_ACT
 static void matvec_q8_range(const QT *t, const int8_t *xq, float x_scale,
-                            float *y, int row_begin, int row_end) {
-  for (int r = row_begin; r < row_end; r++) {
+                            float *y, int row_begin, int row_end) {  for (int r = row_begin; r < row_end; r++) {
     const uint8_t *row = t->codes + (size_t)r * t->row_bytes;
     const uint16_t *sc = t->scales + (size_t)r * t->n_groups;
     float acc = 0.f;
@@ -196,6 +196,7 @@ static void matvec_q8(const QT *t, const float *x, float *y) {
   quantize_act(x, t->cols, xq, &xs);
   matvec_q8_range(t, xq, xs, y, 0, t->rows);
 }
+#endif  // LLM_INT8_ACT
 
 // llm_forward dispatches through MATVEC so one flag flips the whole model.
 #ifdef LLM_INT8_ACT
