@@ -35,8 +35,19 @@ jobs:
             --build-property compiler.optimization_flags=-O3 \
             firmware/esp32_llm
 
+  host-verify:
+    name: Host C runtime builds clean
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Build host verifiers (warnings are errors)
+        run: |
+          cc -O3 -Wall -Wextra -Werror -o /tmp/verify firmware/host_verify/verify.c -lm
+          cc -O3 -Wall -Wextra -Werror -o /tmp/ppl_fp32 firmware/host_verify/ppl.c -lm
+          cc -O3 -Wall -Wextra -Werror -DLLM_INT8_ACT -o /tmp/ppl_int8 firmware/host_verify/ppl.c -lm
+
   python:
-    name: Python syntax check
+    name: Python tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -46,3 +57,10 @@ jobs:
       - name: Compile sources
         run: |
           python -m py_compile src/*.py data/*.py firmware/prompt_ui.py firmware/flash_windows.py firmware/flash_download_loop.py firmware/reset_download.py firmware/bootlog.py
+      - name: Install test deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install "torch>=2.13" --index-url https://download.pytorch.org/whl/cpu
+          pip install "numpy>=2" pytest tokenizers
+      - name: Run tests
+        run: pytest -q
