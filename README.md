@@ -111,6 +111,27 @@ jawabannya koheren dalam Bahasa Indonesia dengan format `Jawaban:`.
   mungil), bukan karena kepintarannya. Fine-tune penuh ~5000 langkah sedang
   dikerjakan untuk membuatnya lebih fasih.
 
+## Development
+
+The Python side is a uv project; the flat `src/` and `data/` modules import each
+other by bare name, so run them from inside `src/`.
+
+```bash
+uv sync --extra dev          # install deps + pytest
+uv run pytest -q             # 21 unit tests (model accounting, int4 quantizer, budget)
+```
+
+The C runtime is verified against a PyTorch golden before it ever touches
+hardware:
+
+```bash
+cc -O3 -o /tmp/verify firmware/host_verify/verify.c -lm
+/tmp/verify firmware/model/model.bin firmware/model/golden.txt   # prints PASS
+```
+
+CI (`.github/workflows/ci.yml`) builds the ESP32-S3 sketch with arduino-cli,
+compiles the host verifiers with `-Werror`, and runs the pytest suite.
+
 ## Lisensi
 
 MIT — lihat [LICENSE](LICENSE).
