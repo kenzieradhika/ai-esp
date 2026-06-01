@@ -9,6 +9,14 @@
 
 ![Demo AI berjalan di ESP32-S3](media/esp32-ple-demo.gif)
 
+> **English TL;DR** — A **28.9M-parameter** Indonesian chat model running
+> entirely on an **ESP32-S3** (512KB SRAM, 8MB PSRAM, 16MB flash). No server, no
+> internet. 25M of those parameters live in flash as a per-token-sparse table
+> using Gemma-style **Per-Layer Embeddings**, so only the ~559K-param dense core
+> needs to fit in fast SRAM. It beats a same-core baseline by 0.098 nats, keeps
+> that edge after 4-bit quantization, and generates ~9.5 tok/s on-chip. Full
+> numbers in [`RESULTS.md`](RESULTS.md).
+
 Ini adalah model bahasa dengan **28,9 juta parameter** yang bisa diajak ngobrol
 dalam **Bahasa Indonesia** dan berjalan langsung di chip **ESP32-S3** —
 microcontroller murah yang dipakai di papan IoT. Semua diproses di dalam chip.
