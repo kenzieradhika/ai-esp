@@ -45,6 +45,9 @@ jobs:
           cc -O3 -Wall -Wextra -Werror -o /tmp/verify firmware/host_verify/verify.c -lm
           cc -O3 -Wall -Wextra -Werror -o /tmp/ppl_fp32 firmware/host_verify/ppl.c -lm
           cc -O3 -Wall -Wextra -Werror -DLLM_INT8_ACT -o /tmp/ppl_int8 firmware/host_verify/ppl.c -lm
+          cc -O3 -Wall -Wextra -Werror -DLLM_INT8_ACT -o /tmp/kernels firmware/host_verify/test_kernels.c -lm
+      - name: Run kernel tests
+        run: /tmp/kernels
 
   python:
     name: Python tests
