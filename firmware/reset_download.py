@@ -8,9 +8,10 @@ Usage:
     python firmware/reset_download.py [COM port]
 """
 
-import serial
 import sys
 import time
+
+import serial
 
 PORT = sys.argv[1] if len(sys.argv) > 1 else "COM6"
 

@@ -30,7 +30,7 @@ def bytes_to_unicode():
             bs.append(b)
             cs.append(256 + n)
             n += 1
-    return {b: chr(c) for b, c in zip(bs, cs)}
+    return {b: chr(c) for b, c in zip(bs, cs, strict=True)}
 
 
 def main():
@@ -98,7 +98,7 @@ def main():
         f.write("#ifndef BPE_H\n#define BPE_H\n")
         f.write(f"#define BPE_N_MERGES {len(merges)}\n")
         f.write("// byte value -> token id (1..256)\n")
-        f.write(f"static const unsigned short BPE_BYTE_TO_ID[256] = {{\n")
+        f.write("static const unsigned short BPE_BYTE_TO_ID[256] = {\n")
         for i in range(0, 256, 16):
             f.write("  " + ",".join(str(v) for v in byte_ids[i:i+16]) + ",\n")
         f.write("};\n")

@@ -1,0 +1,7 @@
+target-version = "py312"
+
+[lint]
+# High-value only: pyflakes (F), import order (I), bugbear (B), syntax errors
+# (E9). Style-only rules (E7xx, UP0xx) are left off on purpose -- the firmware
+# helper scripts use terse one-liners and %-formatting deliberately.
+select = ["F", "I", "B", "E9"]

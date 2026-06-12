@@ -23,7 +23,6 @@ import torch
 
 from model import Config, TinyLM
 
-
 HERE = os.path.dirname(os.path.abspath(__file__))
 RUNS = os.path.join(HERE, "..", "runs")
 OUT = os.path.join(HERE, "..", "firmware", "model")
