@@ -6,6 +6,8 @@
   - prints the prompt token ids for a fixed demo prompt to paste into the sketch.
 """
 
+import argparse
+import json
 import os
 
 from tokenizers import Tokenizer
@@ -34,7 +36,6 @@ def bytes_to_unicode():
 
 
 def main():
-    import argparse
     ap = argparse.ArgumentParser()
     ap.add_argument("--tok", default=TOK, help="path to the BPE tokenizer json")
     ap.add_argument("--prompt", default=PROMPT, help="demo prompt to show ids for")
@@ -71,9 +72,8 @@ def main():
 
     # BPE tables. Tokenizer layout: id 0 = <|endoftext|>, ids 1..256 = byte
     # tokens (GPT-2 alphabet), merge rank r -> id 257+r (asserted below).
-    import json
-
-    raw = json.load(open(tok_path, encoding="utf-8"))
+    with open(tok_path, encoding="utf-8") as f:
+        raw = json.load(f)
     merges = raw["model"]["merges"]  # [[a, b], ...] strings, rank order
     assert len(merges) == V - 257, f"expected {V-257} merges, got {len(merges)}"
     for r, (a, b) in enumerate(merges):
