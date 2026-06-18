@@ -22,7 +22,8 @@ ORDER = ["baseline", "ple_notable", "fatembed", "ple", "bigcore"]
 def load():
     by_arm = defaultdict(list)
     for path in sorted(glob.glob(os.path.join(RUNS, "*.json"))):
-        r = json.load(open(path))
+        with open(path) as f:
+            r = json.load(f)
         by_arm[r["arm"]].append(r)
     return by_arm
 
