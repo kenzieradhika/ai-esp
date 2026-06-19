@@ -18,7 +18,6 @@ import sys
 import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-REPO = os.path.dirname(HERE)
 
 APPDATA = os.environ.get("LOCALAPPDATA", "")
 ESPTOOL = os.path.join(
@@ -59,7 +58,7 @@ def main():
             return 1
 
     # Rebuild the project's own partition table (custom "model" partition).
-    partitions = os.path.join(HERE, "..", "firmware", "model", "partitions.bin")
+    partitions = os.path.join(HERE, "model", "partitions.bin")
     subprocess.run([sys.executable, GEN_PART,
                     os.path.join(HERE, "esp32_llm", "partitions.csv"), partitions],
                    check=True)
