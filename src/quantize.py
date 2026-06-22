@@ -19,6 +19,7 @@ import numpy as np
 import torch
 
 from model import Config, TinyLM
+from train import get_device
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DATA = os.path.join(HERE, "..", "data")
@@ -83,14 +84,6 @@ def val_loss(model, vocab, device, iters=60, bs=16, sl=256, seed=1234):
         y = torch.from_numpy(np.stack([data[i+1:i+1+sl] for i in ix]).astype(np.int64)).to(device)
         losses.append(model(x, y)[1].item())
     return sum(losses) / len(losses)
-
-
-def get_device():
-    if torch.backends.mps.is_available():
-        return "mps"
-    if torch.cuda.is_available():
-        return "cuda"
-    return "cpu"
 
 
 def main():
