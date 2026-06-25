@@ -9,23 +9,28 @@ import time
 
 import serial
 
-PORT = sys.argv[1] if len(sys.argv) > 1 else "COM6"
 
-ser = serial.Serial(PORT, 115200, timeout=0.2)
-ser.setDTR(False)
-ser.setRTS(True)   # reset asserted
-time.sleep(0.25)
-ser.setRTS(False)  # release -> boot
+def main():
+    port = sys.argv[1] if len(sys.argv) > 1 else "COM6"
+    ser = serial.Serial(port, 115200, timeout=0.2)
+    ser.setDTR(False)
+    ser.setRTS(True)   # reset asserted
+    time.sleep(0.25)
+    ser.setRTS(False)  # release -> boot
 
-log = b""
-deadline = time.time() + 6
-while time.time() < deadline:
-    chunk = ser.read(4096)
-    if chunk:
-        log += chunk
-        deadline = time.time() + 1.0
+    log = b""
+    deadline = time.time() + 6
+    while time.time() < deadline:
+        chunk = ser.read(4096)
+        if chunk:
+            log += chunk
+            deadline = time.time() + 1.0
 
-ser.close()
-text = log.decode("utf-8", "replace")
-print("--- boot log ---")
-print(text or "(kosong)")
+    ser.close()
+    text = log.decode("utf-8", "replace")
+    print("--- boot log ---")
+    print(text or "(kosong)")
+
+
+if __name__ == "__main__":
+    main()
