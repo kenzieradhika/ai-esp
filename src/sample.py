@@ -19,7 +19,7 @@ def main():
     ap.add_argument("--tokens", type=int, default=200)
     ap.add_argument("--temperature", type=float, default=0.8)
     ap.add_argument("--samples", type=int, default=3)
-    ap.add_argument("--tok", default=os.path.join(HERE, "..", "data", "bpe4096.json"),
+    ap.add_argument("--tok", default=os.path.join(HERE, "..", "data", "bpe_id32768.json"),
                     help="path to the BPE tokenizer json matching the checkpoint")
     args = ap.parse_args()
 
