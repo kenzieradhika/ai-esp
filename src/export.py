@@ -14,9 +14,9 @@ golden logits are the *4-bit* model's logits: C-vs-PyTorch then isolates port
 correctness from quantization error, which was measured separately.
 """
 
+import argparse
 import os
 import struct
-import sys
 
 import numpy as np
 import torch
@@ -70,7 +70,11 @@ def quant_pack(w, group=GROUP):
 
 
 def main():
-    tag = sys.argv[1] if len(sys.argv) > 1 else "ple-cleandeploy-s0"
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("tag", nargs="?", default="ple-cleandeploy-s0",
+                    help="run tag under runs/ to export (default: %(default)s)")
+    args = ap.parse_args()
+    tag = args.tag
     os.makedirs(OUT, exist_ok=True)
     ck = torch.load(os.path.join(RUNS, f"{tag}.pt"), map_location="cpu", weights_only=False)
     cfg = Config(**ck["cfg"])
