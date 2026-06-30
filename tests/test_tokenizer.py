@@ -7,7 +7,6 @@ import json
 import os
 
 import pytest
-
 from tokenizers import Tokenizer
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
