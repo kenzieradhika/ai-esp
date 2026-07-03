@@ -43,6 +43,13 @@ class Config:
     ple_dim: int = 64
     rope_theta: float = 10000.0
 
+    def __post_init__(self):
+        if self.d_model % self.n_heads:
+            raise ValueError(f"d_model ({self.d_model}) must be divisible by n_heads ({self.n_heads})")
+        if self.head_dim % 2:
+            # split-half RoPE rotates (x1, x2) pairs, so the head dim must be even.
+            raise ValueError(f"head_dim ({self.head_dim}) must be even for split-half RoPE")
+
     @property
     def head_dim(self):
         return self.d_model // self.n_heads
@@ -294,7 +301,7 @@ def make_model(arm, target_core, base: Config = None, verbose=True, fixed_ffn=No
         # Spend the table budget on width instead, so this arm's core equals every
         # other arm's core+table. Searched, since core scales ~quadratically in d.
         best = None
-        for d in range(cfg.d_model, 8 * cfg.d_model, cfg.n_heads):
+        for d in range(cfg.d_model, 8 * cfg.d_model, 2 * cfg.n_heads):
             trial = Config(**{**cfg.__dict__, "arm": "baseline", "d_model": d, "ffn_hidden": 2 * d})
             if TinyLM(trial).param_budget()["core"] <= target_core + table_budget:
                 best = trial
