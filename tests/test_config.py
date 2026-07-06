@@ -6,6 +6,7 @@ longer matching the PLE table, or `uses_per_layer` losing an arm) would quietly
 invalidate the ablation without failing any forward pass.
 """
 
+import pytest
 import torch
 
 from model import Config, TinyLM
@@ -34,6 +35,17 @@ def test_table_width_matches_ple_table_params():
     # fatembed's wide embedding must carry exactly the PLE table's param count.
     c = Config(n_layers=6, ple_dim=64)
     assert c.table_width == 6 * 64
+
+
+def test_config_rejects_indivisible_heads():
+    with pytest.raises(ValueError):
+        Config(d_model=96, n_heads=5)
+
+
+def test_config_rejects_odd_head_dim():
+    # head_dim must be even for split-half RoPE; d_model=96, n_heads=32 -> 3.
+    with pytest.raises(ValueError):
+        Config(d_model=96, n_heads=32)
 
 
 def test_bigcore_arm_has_no_table_params():
