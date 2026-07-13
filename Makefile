@@ -1,16 +1,20 @@
 # Convenience targets. The Python side runs from src/ (flat imports); the C
 # side is verified on the host before anything is flashed.
 
-.PHONY: help test verify build clean
+.PHONY: help test lint verify build clean
 
 help:
 	@echo "make test    - run the pytest suite"
+	@echo "make lint    - run ruff over the Python sources"
 	@echo "make verify  - build + run the host C runtime checks"
 	@echo "make build   - compile the ESP32-S3 sketch (arduino-cli)"
 	@echo "make clean   - remove __pycache__ and test binaries"
 
 test:
 	uv run pytest -q
+
+lint:
+	uv run ruff check src data firmware tests
 
 verify:
 	cc -O3 -Wall -Wextra -Werror -o /tmp/esp-verify firmware/host_verify/verify.c -lm
