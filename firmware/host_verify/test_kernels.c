@@ -72,6 +72,52 @@ static void test_ragged_odd_cols(void) {
         "ragged deq = %g %g %g", row[0], row[1], row[2]);
 }
 
+// A ranged matvec (what the dual-core head splits on) must equal the full one.
+static void test_matvec_range_matches_full(void) {
+  const int rows = 6, cols = 8;
+  uint8_t codes[6 * 4];
+  for (int r = 0; r < rows; r++)
+    for (int i = 0; i < cols; i += 2) {
+      int a = ((r + i) % 15) - 7, b = ((r * 2 + i) % 15) - 7;
+      codes[r * 4 + (i >> 1)] = (uint8_t)(((a + 8) & 0xF) | (((b + 8) & 0xF) << 4));
+    }
+  uint16_t scales[6] = {0x3C00, 0x3C00, 0x3C00, 0x3C00, 0x3C00, 0x3C00};
+  QT t = {codes, scales, rows, cols, 8, 1, 4};
+  float x[8] = {0.5f, -1.0f, 2.0f, 0.25f, -0.75f, 1.5f, -2.0f, 0.1f};
+
+  float full[6], ranged[6];
+  matvec_q(&t, x, full);
+  matvec_q_range(&t, x, ranged, 0, 3);
+  matvec_q_range(&t, x, ranged, 3, rows);
+  for (int r = 0; r < rows; r++)
+    CHECK(fabsf(full[r] - ranged[r]) < 1e-5f,
+          "row %d: full=%g ranged=%g", r, full[r], ranged[r]);
+}
+
+// rmsnorm/gelu/silu: identities the C runtime relies on to match src/model.py.
+static void test_norm_activations(void) {
+  float x[4] = {1.f, -2.f, 3.f, -4.f};
+  float w[4] = {1.f, 1.f, 1.f, 1.f};
+  float out[4];
+  rmsnorm(x, w, 4, out);
+  float ss = 0.f; for (int i = 0; i < 4; i++) ss += x[i] * x[i];
+  float inv = 1.f / sqrtf(ss / 4 + 1e-6f);
+  for (int i = 0; i < 4; i++)
+    CHECK(fabsf(out[i] - x[i] * inv) < 1e-5f, "rmsnorm[%d]=%g", i, out[i]);
+
+  // Scale invariance: rmsnorm(k*x) == rmsnorm(x) when eps is negligible.
+  float y[4]; for (int i = 0; i < 4; i++) y[i] = 10.f * x[i];
+  float out2[4]; rmsnorm(y, w, 4, out2);
+  for (int i = 0; i < 4; i++)
+    CHECK(fabsf(out2[i] - out[i]) < 1e-3f, "rmsnorm scale[%d]=%g vs %g", i, out2[i], out[i]);
+
+  CHECK(gelu(0.f) == 0.f, "gelu(0)=%g", gelu(0.f));
+  CHECK(silu(0.f) == 0.f, "silu(0)=%g", silu(0.f));
+  // Both are odd-ish monotone; check a known gelu value.
+  CHECK(fabsf(gelu(1.f) - 0.8413447f) < 1e-5f, "gelu(1)=%g", gelu(1.f));
+  CHECK(fabsf(silu(1.f) - 0.7310586f) < 1e-5f, "silu(1)=%g", silu(1.f));
+}
+
 int main(void) {
   // llm_load/llm_forward are unused here (no model file), but referencing them
   // keeps the header warning-free under -Werror without compiling them out.
@@ -79,6 +125,8 @@ int main(void) {
   test_half2float();
   test_deq_and_matvec();
   test_ragged_odd_cols();
+  test_matvec_range_matches_full();
+  test_norm_activations();
   if (fails) { printf("%d kernel test(s) FAILED\n", fails); return 1; }
   printf("kernel tests PASS\n");
   return 0;
