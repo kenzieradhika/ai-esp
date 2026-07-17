@@ -118,15 +118,53 @@ static void test_norm_activations(void) {
   CHECK(fabsf(silu(1.f) - 0.7310586f) < 1e-5f, "silu(1)=%g", silu(1.f));
 }
 
+// llm_load must reject a corrupt/stale header instead of overrunning the fixed
+// per-layer arrays in Model (or dividing by a zero group). A well-formed header
+// over a zeroed body still loads; llm_load only reads the header + group ints.
+static void test_load_rejects_bad_header(void) {
+  static uint8_t buf[1 << 16];
+  Model m;
+
+  memset(buf, 0, sizeof(buf));
+  memcpy(buf, &(uint32_t){LLM_MAGIC}, 4);
+  int32_t ok[8] = {16, 8, 1, 2, 16, 8, 8, 8};
+  memcpy(buf + 4, ok, 32);
+  // Per-tensor group int (first 4 bytes of the body) deliberately 0.
+  memcpy(buf + 36, &(int32_t){0}, 4);
+  CHECK(llm_load(buf, &m) == 0, "well-formed header should load");
+  CHECK(m.tok_emb.group == 1, "zero group must be guarded, not divide-by-zero");
+
+  memcpy(buf, &(uint32_t){0xDEADBEEF}, 4);
+  CHECK(llm_load(buf, &m) == -1, "bad magic must be rejected");
+
+  memcpy(buf, &(uint32_t){LLM_MAGIC}, 4);
+  int32_t too_many[8] = {16, 8, LLM_MAX_LAYERS + 1, 2, 16, 8, 8, 8};
+  memcpy(buf + 4, too_many, 32);
+  CHECK(llm_load(buf, &m) == -1, "n_layers over cap must be rejected");
+
+  int32_t bad_heads[8] = {16, 8, 1, 3, 16, 8, 8, 8};  // 8 % 3 != 0
+  memcpy(buf + 4, bad_heads, 32);
+  CHECK(llm_load(buf, &m) == -1, "n_heads not dividing dim must be rejected");
+
+  int32_t zero_dim[8] = {16, 0, 1, 2, 16, 8, 8, 8};
+  memcpy(buf + 4, zero_dim, 32);
+  CHECK(llm_load(buf, &m) == -1, "zero dim must be rejected");
+
+  int32_t huge_dim[8] = {16, LLM_ACT_BUF + 1, 1, 2, 16, 8, 8, 8};
+  memcpy(buf + 4, huge_dim, 32);
+  CHECK(llm_load(buf, &m) == -1, "dim over the activation buffer must be rejected");
+}
+
 int main(void) {
   // llm_load/llm_forward are unused here (no model file), but referencing them
   // keeps the header warning-free under -Werror without compiling them out.
-  (void)&llm_load; (void)&llm_forward;
+  (void)&llm_forward;
   test_half2float();
   test_deq_and_matvec();
   test_ragged_odd_cols();
   test_matvec_range_matches_full();
   test_norm_activations();
+  test_load_rejects_bad_header();
   if (fails) { printf("%d kernel test(s) FAILED\n", fails); return 1; }
   printf("kernel tests PASS\n");
   return 0;

@@ -16,6 +16,8 @@
 
 #define LLM_MAGIC 0x504C4531u
 #define RMS_EPS 1e-6f
+#define LLM_MAX_LAYERS 32   // Model holds fixed per-layer arrays of this size
+#define LLM_ACT_BUF 1024    // int8 activation scratch; must cover max(D,F,P)
 
 typedef struct {
   int vocab, dim, n_layers, n_heads, ffn, ple_dim, seq_len, group;
@@ -55,14 +57,14 @@ typedef struct {
   QT ple_model_proj;      // [L*P, D]
   const float *ple_proj_norm; // [P]
   QT ple_table;           // [V, L*P]
-  const float *attn_norm[32]; // [D]
-  QT qkv[32];             // [3D, D]
-  QT attn_proj[32];       // [D, D]
-  const float *ffn_norm[32];  // [D]
-  QT gate[32], up[32], down[32];
-  QT ple_gate[32];        // [P, D]
-  QT ple_proj[32];        // [D, P]
-  const float *ple_norm[32];  // [D]
+  const float *attn_norm[LLM_MAX_LAYERS]; // [D]
+  QT qkv[LLM_MAX_LAYERS];             // [3D, D]
+  QT attn_proj[LLM_MAX_LAYERS];       // [D, D]
+  const float *ffn_norm[LLM_MAX_LAYERS];  // [D]
+  QT gate[LLM_MAX_LAYERS], up[LLM_MAX_LAYERS], down[LLM_MAX_LAYERS];
+  QT ple_gate[LLM_MAX_LAYERS];        // [P, D]
+  QT ple_proj[LLM_MAX_LAYERS];        // [D, P]
+  const float *ple_norm[LLM_MAX_LAYERS];  // [D]
   const float *out_norm;      // [D]
   void (*head_matvec)(const QT *, const float *, float *); // optional platform override
 } Model;
@@ -71,6 +73,7 @@ typedef struct {
 // group prefix, then ragged codes + fp16 scales.
 static const uint8_t *bind_q(const uint8_t *p, QT *t, int rows, int cols) {
   int32_t group; memcpy(&group, p, 4); p += 4;
+  if (group <= 0) group = 1;  // a zero/negative group would divide-by-zero below
   t->rows = rows; t->cols = cols; t->group = group;
   t->n_groups = (cols + group - 1) / group;
   t->row_bytes = (cols + 1) / 2;
@@ -191,8 +194,9 @@ static void matvec_q8_range(const QT *t, const int8_t *xq, float x_scale,
 }
 
 static void matvec_q8(const QT *t, const float *x, float *y) {
-  static int8_t xq[1024];  // max input dim across the model is 128
+  static int8_t xq[LLM_ACT_BUF];  // max input dim across the model is D/F/P
   float xs;
+  if (t->cols > LLM_ACT_BUF) return;  // guarded at load; keep the buffer safe
   quantize_act(x, t->cols, xq, &xs);
   matvec_q8_range(t, xq, xs, y, 0, t->rows);
 }
@@ -225,6 +229,17 @@ static int llm_load(const uint8_t *base, Model *m) {
   memcpy(&m->c.rope_theta, p, 4); p += 4;
   m->head_matvec = NULL;
   int D = m->c.dim, L = m->c.n_layers, P = m->c.ple_dim, F = m->c.ffn, V = m->c.vocab;
+
+  // Validate before binding: the header is untrusted input (a stale or corrupt
+  // model.bin), and the per-layer arrays are fixed size. Rejecting here beats
+  // overflowing Model on a bad flash image.
+  if (V <= 0 || D <= 0 || L <= 0 || F <= 0 || P <= 0) return -1;
+  if (L > LLM_MAX_LAYERS) return -1;
+  if (m->c.n_heads <= 0 || D % m->c.n_heads) return -1;
+  if (m->c.seq_len <= 0 || m->c.group <= 0) return -1;
+  if (D > LLM_ACT_BUF || F > LLM_ACT_BUF || P > LLM_ACT_BUF) return -1;
+  // RoPE reuses the (L*P) table row buffer for Dh/2 cos + Dh/2 sin values.
+  if ((D / m->c.n_heads) > L * P) return -1;
 
   p = bind_q(p, &m->tok_emb, V, D);
   p = bind_q(p, &m->ple_model_proj, L * P, D);
