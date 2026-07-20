@@ -1,0 +1,18 @@
+# python
+__pycache__/
+.venv/
+*.pyc
+
+# data + tokenizers (regenerate with data/prepare.py)
+data/*.bin
+data/*.txt
+data/*.json
+
+# training outputs
+runs/
+
+# generated firmware artifacts (regenerate with src/export.py, src/gen_assets.py)
+firmware/model/model.bin
+firmware/model/golden.npz
+firmware/model/golden.txt
+firmware/esp32_llm/vocab.h
