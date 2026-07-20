@@ -53,7 +53,8 @@ int main(int argc, char **argv) {
       nll += ce; count++;
     }
   }
-  double mean = nll / count;
+  double mean = count ? nll / count : 0.0;
+  if (!count) { fprintf(stderr, "no complete windows in %s\n", valp); return 1; }
 #ifdef LLM_INT8_ACT
   const char *mode = "int8-activations";
 #else
