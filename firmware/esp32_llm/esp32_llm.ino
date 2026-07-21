@@ -36,32 +36,55 @@ static void emit(int tok) {
 Model model;
 Scratch s;
 
-// The output rows are independent. Run half on each LX7 core, preserving the
-// exact scalar dot-product order within every row.
+// ---- int8 output head (SIMD-friendly) --------------------------------------
+// The head is scanned in full every token and dominates runtime. We stage it as
+// int8 in PSRAM at boot (int4 nibbles unpacked ONCE), so per token there is no
+// nibble unpacking and no float conversion of weights -- just int8 x int8 ->
+// int32 dot per row. Its input dim (D=96) is a single group, so one scale per
+// row. int8-activation quality was validated on host (val perplexity delta ~0,
+// see firmware/host_verify/ppl.c). Output rows split across both LX7 cores.
+static int8_t *head_w8 = NULL;      // [rows * cols] unpacked int8 weights (-7..7)
+static float  *head_scale8 = NULL;  // [rows] per-row dequant scale
+static int head_rows, head_cols;
+
+static int8_t head_actq[128];       // quantized activation, shared by both cores
+static float  head_acts;            // its scale
+
+// int8 dot -> int32. Tight and branch-free so the S3 int SIMD / -O3 unrolls it.
+static inline int32_t dot_i8(const int8_t *a, const int8_t *b, int n) {
+  int32_t acc = 0;
+  for (int i = 0; i < n; i++) acc += (int32_t)a[i] * (int32_t)b[i];
+  return acc;
+}
+
+static void head_rows_range(float *y, int r0, int r1) {
+  for (int r = r0; r < r1; r++)
+    y[r] = (float)dot_i8(head_actq, head_w8 + (size_t)r * head_cols, head_cols)
+           * head_scale8[r] * head_acts;
+}
+
+// dual-core plumbing (worker does the first half of the rows on core 0)
 static TaskHandle_t head_worker;
 static TaskHandle_t inference_task;
-// volatile: published to the worker core via the FreeRTOS notify barrier, but
-// marking them volatile removes any reliance on that being the only ordering.
-static const QT *volatile head_job_t;
-static const float *volatile head_job_x;
 static float *volatile head_job_y;
 static volatile int head_job_split;
 
 static void head_worker_main(void *) {
   for (;;) {
     ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-    matvec_q_range(head_job_t, head_job_x, head_job_y, 0, head_job_split);
+    head_rows_range(head_job_y, 0, head_job_split);
     xTaskNotifyGive(inference_task);
   }
 }
 
-static void parallel_head_matvec(const QT *t, const float *x, float *y) {
-  head_job_t = t;
-  head_job_x = x;
+// Matches Model.head_matvec (QT*, float*, float*); QT unused (weights staged).
+static void head_matvec_int8(const QT *t, const float *x, float *y) {
+  (void)t;
+  quantize_act(x, head_cols, head_actq, &head_acts);  // once; both cores read it
   head_job_y = y;
-  head_job_split = t->rows / 2;
+  head_job_split = head_rows / 2;
   xTaskNotifyGive(head_worker);
-  matvec_q_range(t, x, y, head_job_split, t->rows);
+  head_rows_range(y, head_job_split, head_rows);
   ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 }
 
@@ -71,18 +94,23 @@ static void *ps(size_t n) {
   return p;
 }
 
-// The tied embedding/output head is scanned in full for every token. Stage it
-// in PSRAM once at boot; the 25M sparse PLE table and small core stay mapped in
-// flash because measured core staging only saved 1.4% while adding complexity.
-static void stage_head_in_psram(QT *t) {
-  size_t codes_n = (size_t)t->rows * t->row_bytes;
-  size_t scales_n = (size_t)t->rows * t->n_groups * sizeof(uint16_t);
-  uint8_t *copy = (uint8_t *)ps(codes_n + scales_n);
-  memcpy(copy, t->codes, codes_n);
-  memcpy(copy + codes_n, t->scales, scales_n);
-  t->codes = copy;
-  t->scales = (const uint16_t *)(copy + codes_n);
-  Serial.printf("head staged in PSRAM: %.2f MB\n", (codes_n + scales_n) / 1e6);
+// Unpack the (row-capped) head from int4 to int8 in PSRAM, once at boot.
+static void stage_head_int8(QT *t) {
+  head_rows = t->rows; head_cols = t->cols;
+  head_w8 = (int8_t *)ps((size_t)head_rows * head_cols);
+  head_scale8 = (float *)ps((size_t)head_rows * sizeof(float));
+  for (int r = 0; r < head_rows; r++) {
+    const uint8_t *row = t->codes + (size_t)r * t->row_bytes;
+    int8_t *dst = head_w8 + (size_t)r * head_cols;
+    for (int j = 0; j < head_cols; j++) {
+      uint8_t byte = row[j >> 1];
+      int code = (j & 1) ? (byte >> 4) : (byte & 0xF);
+      dst[j] = (int8_t)(code - 8);
+    }
+    head_scale8[r] = half2float(t->scales[(size_t)r * t->n_groups]);  // n_groups==1
+  }
+  Serial.printf("head staged int8: %.2f MB\n",
+                ((size_t)head_rows * head_cols + (size_t)head_rows * 4) / 1e6);
 }
 
 static void blink(uint8_t g) {
@@ -116,17 +144,18 @@ void setup() {
   display_begin();
 #endif
 
-  stage_head_in_psram(&model.tok_emb);
-  // The tokenizer learned 25,353 entries; the remaining padded model rows can
-  // never be emitted, so do not spend a full head dot-product on them.
+  // Cap head rows to the trained vocab BEFORE staging: the tokenizer learned
+  // 25,353 entries; the padded rows above that can never be emitted (and have no
+  // decode entry), so we neither stage nor score them.
   model.tok_emb.rows = VOCAB_N;
+  stage_head_int8(&model.tok_emb);  // int8-staged head; input embedding still uses mmap
   inference_task = xTaskGetCurrentTaskHandle();
   if (xTaskCreatePinnedToCore(head_worker_main, "head", 4096, NULL, 2,
                              &head_worker, 0) != pdPASS) {
     Serial.println("head worker creation failed");
     return;
   }
-  model.head_matvec = parallel_head_matvec;
+  model.head_matvec = head_matvec_int8;
 
   int D = c->dim, L = c->n_layers, P = c->ple_dim, F = c->ffn, V = c->vocab, S = c->seq_len;
   s.x = (float *)ps(D * 4);
