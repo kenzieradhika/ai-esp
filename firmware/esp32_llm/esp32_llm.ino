@@ -12,8 +12,26 @@
 #include "../common/llm.h"
 #include "vocab.h"
 
+// Set to 1 once a GMT020-02-7P (2.0" 240x320 ST7789) is wired up — see display.h.
+// Leave 0 to run serial-only (no panel needed).
+#define USE_DISPLAY 0
+#if USE_DISPLAY
+#include "display.h"
+#endif
+
 static const int PROMPT_IDS[] = {433, 447, 259, 405}; // "Once upon a time"
 static const int N_GENERATE = 200;
+
+// Emit one token to every active output (serial always; TFT when enabled).
+static void emit(int tok) {
+  if (tok >= VOCAB_N) return;
+  const unsigned char *bytes = VOCAB_BLOB + VOCAB_OFF[tok];
+  int len = VOCAB_OFF[tok + 1] - VOCAB_OFF[tok];
+  Serial.write(bytes, len);
+#if USE_DISPLAY
+  display_puts(bytes, len);
+#endif
+}
 
 Model model;
 Scratch s;
@@ -94,6 +112,10 @@ void setup() {
                 c->vocab, c->dim, c->n_layers, c->n_heads, c->ffn, c->ple_dim,
                 part->size / 1e6);
 
+#if USE_DISPLAY
+  display_begin();
+#endif
+
   stage_head_in_psram(&model.tok_emb);
   // The tokenizer learned 25,353 entries; the remaining padded model rows can
   // never be emitted, so do not spend a full head dot-product on them.
@@ -133,8 +155,7 @@ void setup() {
 
   for (int i = 0; i < n_prompt; i++) {  // prime with the prompt
     tok = PROMPT_IDS[i];
-    if (tok < VOCAB_N)
-      Serial.write(VOCAB_BLOB + VOCAB_OFF[tok], VOCAB_OFF[tok + 1] - VOCAB_OFF[tok]);
+    emit(tok);
     llm_forward(&model, tok, pos++, &s);
   }
 
@@ -147,7 +168,7 @@ void setup() {
     for (int v = 0; v < VOCAB_N; v++)
       if (s.logits[v] > bv) { bv = s.logits[v]; best = v; }
     tok = best;
-    Serial.write(VOCAB_BLOB + VOCAB_OFF[tok], VOCAB_OFF[tok + 1] - VOCAB_OFF[tok]);
+    emit(tok);
     blink((step & 1) ? 40 : 8);
 
     int64_t d0 = esp_timer_get_time();
