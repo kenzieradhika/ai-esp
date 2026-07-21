@@ -40,8 +40,18 @@ int main(int argc, char **argv) {
   FILE *gf = fopen(gold, "r");
   if (!gf) { perror(gold); return 1; }
   int plen; if (fscanf(gf, "%d", &plen) != 1) return 1;
+  if (plen < 1 || plen > m.c.seq_len) {
+    fprintf(stderr, "prompt length %d outside [1, %d]\n", plen, m.c.seq_len);
+    return 1;
+  }
   int *prompt = malloc(plen * sizeof(int));
-  for (int i = 0; i < plen; i++) if (fscanf(gf, "%d", &prompt[i]) != 1) return 1;
+  for (int i = 0; i < plen; i++) {
+    if (fscanf(gf, "%d", &prompt[i]) != 1) return 1;
+    if (prompt[i] < 0 || prompt[i] >= V) {
+      fprintf(stderr, "prompt token %d out of vocab range [0, %d)\n", prompt[i], V);
+      return 1;
+    }
+  }
   float *ref = malloc(V * sizeof(float));
   for (int i = 0; i < V; i++) if (fscanf(gf, "%f", &ref[i]) != 1) return 1;
   fclose(gf);
