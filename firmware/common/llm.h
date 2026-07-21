@@ -150,6 +150,60 @@ static inline void matvec_q(const QT *t, const float *x, float *y) {
   matvec_q_range(t, x, y, 0, t->rows);
 }
 
+// ---- int8-activation path (the SIMD-friendly form) -------------------------
+// Quantize x to int8 once per call, then per output row do int8*int8 -> int32
+// group dot products, scaled by (x_scale * group_scale). The int32 group sum is
+// exactly what an S3 SIMD int8 dot instruction produces, so the device SIMD
+// kernel is numerically identical to this scalar reference -- only faster. The
+// ONLY approximation vs matvec_q is int8 activations, which the host golden
+// measures. Split into quantize + ranged-dot so the parallel head can quantize
+// once and let both cores read the shared int8 activations.
+static void quantize_act(const float *x, int n, int8_t *xq, float *x_scale) {
+  float xmax = 1e-8f;
+  for (int j = 0; j < n; j++) { float a = fabsf(x[j]); if (a > xmax) xmax = a; }
+  float inv = 127.f / xmax;
+  for (int j = 0; j < n; j++) {
+    int q = (int)lrintf(x[j] * inv);
+    xq[j] = (int8_t)(q > 127 ? 127 : (q < -127 ? -127 : q));
+  }
+  *x_scale = xmax / 127.f;
+}
+
+static void matvec_q8_range(const QT *t, const int8_t *xq, float x_scale,
+                            float *y, int row_begin, int row_end) {
+  for (int r = row_begin; r < row_end; r++) {
+    const uint8_t *row = t->codes + (size_t)r * t->row_bytes;
+    const uint16_t *sc = t->scales + (size_t)r * t->n_groups;
+    float acc = 0.f;
+    for (int gi = 0; gi < t->n_groups; gi++) {
+      int begin = gi * t->group, end = begin + t->group;
+      if (end > t->cols) end = t->cols;
+      int32_t g = 0;                       // <-- the SIMD int8 dot lives here
+      for (int j = begin; j < end; j++) {
+        uint8_t byte = row[j >> 1];
+        int code = (j & 1) ? (byte >> 4) : (byte & 0xF);
+        g += (code - 8) * (int)xq[j];
+      }
+      acc += (float)g * half2float(sc[gi]);
+    }
+    y[r] = acc * x_scale;
+  }
+}
+
+static void matvec_q8(const QT *t, const float *x, float *y) {
+  static int8_t xq[1024];  // max input dim across the model is 128
+  float xs;
+  quantize_act(x, t->cols, xq, &xs);
+  matvec_q8_range(t, xq, xs, y, 0, t->rows);
+}
+
+// llm_forward dispatches through MATVEC so one flag flips the whole model.
+#ifdef LLM_INT8_ACT
+#define MATVEC matvec_q8
+#else
+#define MATVEC matvec_q
+#endif
+
 static inline void rmsnorm(const float *x, const float *w, int n, float *out) {
   float ss = 0.f;
   for (int i = 0; i < n; i++) ss += x[i] * x[i];
@@ -221,7 +275,7 @@ static void llm_forward(Model *m, int token, int pos, Scratch *s) {
   deq_row(&m->tok_emb, token, s->x);           // embedding
 
   // ---- per-layer input: (RMSNorm(proj(x)/sqrt(D)) + table[tok]*sqrt(P)) / sqrt(2)
-  matvec_q(&m->ple_model_proj, s->x, s->tmpP); // [L*P]
+  MATVEC(&m->ple_model_proj, s->x, s->tmpP); // [L*P]
   float dscale = 1.f / sqrtf((float)D);
   for (int i = 0; i < L * P; i++) s->tmpP[i] *= dscale;
   for (int l = 0; l < L; l++)
@@ -248,7 +302,7 @@ static void llm_forward(Model *m, int token, int pos, Scratch *s) {
   for (int l = 0; l < L; l++) {
     // ---- attention
     rmsnorm(s->x, m->attn_norm[l], D, s->h);
-    matvec_q(&m->qkv[l], s->h, s->qkv);        // [3D]
+    MATVEC(&m->qkv[l], s->h, s->qkv);        // [3D]
     float *q = s->qkv, *k = s->qkv + D, *v = s->qkv + 2 * D;
     // split-half RoPE at position pos, per head
     for (int hh = 0; hh < H; hh++) {
@@ -287,7 +341,7 @@ static void llm_forward(Model *m, int token, int pos, Scratch *s) {
       }
       for (int i = 0; i < Dh; i++) ao[i] /= denom;
     }
-    matvec_q(&m->attn_proj[l], s->att, s->h);
+    MATVEC(&m->attn_proj[l], s->att, s->h);
     for (int i = 0; i < D; i++) s->x[i] += s->h[i];
 #ifdef LLM_PROFILE
     uint64_t profile_t2 = (uint64_t)LLM_PROFILE_NOW();
@@ -296,10 +350,10 @@ static void llm_forward(Model *m, int token, int pos, Scratch *s) {
 
     // ---- SwiGLU FFN
     rmsnorm(s->x, m->ffn_norm[l], D, s->h);
-    matvec_q(&m->gate[l], s->h, s->g1);
-    matvec_q(&m->up[l], s->h, s->g2);
+    MATVEC(&m->gate[l], s->h, s->g1);
+    MATVEC(&m->up[l], s->h, s->g2);
     for (int i = 0; i < F; i++) s->g1[i] = silu(s->g1[i]) * s->g2[i];
-    matvec_q(&m->down[l], s->g1, s->h);
+    MATVEC(&m->down[l], s->g1, s->h);
     for (int i = 0; i < D; i++) s->x[i] += s->h[i];
 #ifdef LLM_PROFILE
     uint64_t profile_t3 = (uint64_t)LLM_PROFILE_NOW();
@@ -307,9 +361,9 @@ static void llm_forward(Model *m, int token, int pos, Scratch *s) {
 #endif
 
     // ---- PLE gate: x += RMSNorm(ple_proj(gelu(ple_gate(x)) * ple_l))
-    matvec_q(&m->ple_gate[l], s->x, s->g2);    // [P]
+    MATVEC(&m->ple_gate[l], s->x, s->g2);    // [P]
     for (int i = 0; i < P; i++) s->g2[i] = gelu(s->g2[i]) * s->ple[l * P + i];
-    matvec_q(&m->ple_proj[l], s->g2, s->h);    // [D]
+    MATVEC(&m->ple_proj[l], s->g2, s->h);    // [D]
     rmsnorm(s->h, m->ple_norm[l], D, s->h);
     for (int i = 0; i < D; i++) s->x[i] += s->h[i];
 #ifdef LLM_PROFILE
@@ -321,7 +375,7 @@ static void llm_forward(Model *m, int token, int pos, Scratch *s) {
   rmsnorm(s->x, m->out_norm, D, s->x);
   // output head (tied embedding): logits[v] = dot(tok_emb_row[v], x)
   if (m->head_matvec) m->head_matvec(&m->tok_emb, s->x, s->logits);
-  else matvec_q(&m->tok_emb, s->x, s->logits);
+  else MATVEC(&m->tok_emb, s->x, s->logits);
 #ifdef LLM_PROFILE
   s->profile.head_us += (uint64_t)LLM_PROFILE_NOW() - profile_t1;
   s->profile.calls++;
