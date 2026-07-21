@@ -97,14 +97,14 @@ uv run python src/sample.py --run runs/ple-s0.pt
 Validated end to end on an ESP32-S3 N16R8. The deploy model has 28.9M stored
 parameters in a 14.91MB group-wise int4 artifact, reproduces its PyTorch golden
 logits in the portable C runtime to `1e-5`, and generates coherent TinyStories
-text on the chip. The polished exact runtime measures 139.4ms per model step
-(**7.17 tok/s compute-only**) across two 200-token runs; attached serial runs
-measured **5.67-6.22 tok/s end to end**.
+text on the chip. The runtime measures 102.9ms per model step (**9.72 tok/s
+compute-only**); attached serial runs measure **~9.5 tok/s end to end**.
 
-The current firmware stages the tied embedding/output head in PSRAM, keeps the
-25M PLE table memory-mapped in flash, and places scratch plus KV cache in PSRAM.
-It still uses scalar int4 dot products rather than ESP32-S3 SIMD, so this is a
-polished exact baseline rather than the performance ceiling. See
-`firmware/esp32_llm/README.md` for reproducible build and flash commands.
+The current firmware stages the output head as int8 in PSRAM and quantizes
+activations to int8 (validated on host val perplexity, delta ~0), keeps the 25M
+PLE table memory-mapped in flash, and places scratch plus KV cache in PSRAM. The
+head is now PSRAM-bandwidth-bound; further speed comes from reducing bytes-read or
+a smaller output head, not from more vectorization. See `firmware/esp32_llm/README.md`
+for reproducible build and flash commands.
 
 See `RESULTS.md` for findings.

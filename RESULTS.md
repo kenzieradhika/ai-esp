@@ -7,10 +7,11 @@ from core — see `src/budget.py`). Earlier mixed-accounting runs are archived i
 **Status (2026-07-21): validated end to end.** PLE beats baseline (2 seeds), the
 gain survives 4-bit PTQ (2 seeds), on-chip bandwidth confirms the flash table is
 nearly free, and the complete 28.9M-parameter model now generates coherent text
-on an ESP32-S3 N16R8. The polished exact C runtime generates text at **5.67-6.22
-tok/s end to end** (what a viewer sees; includes serial output), equivalent to
-139.4ms/model step or 7.17 tok/s of pure compute. Lead public numbers with the
-end-to-end figure.
+on an ESP32-S3 N16R8. The C runtime generates text at **~9.5 tok/s end to end**
+(what a viewer sees; includes serial output), equivalent to 102.9ms/model step or
+9.72 tok/s of pure compute, using an int8-staged output head with int8 activations
+(host-validated, val perplexity delta ~0). Lead public numbers with the end-to-end
+figure.
 
 ## Headline (the deployable config)
 
@@ -127,12 +128,27 @@ One captured on-device continuation begins:
 | first correct portable port | 0.57 tok/s end to end | 1,757.2 ms |
 | PSRAM head + scalar cleanup | 4.61-4.77 tok/s end to end | 193.9 ms |
 | exact dot/RoPE/attention cleanup | — | 172.9 ms |
-| dual-core exact head | **5.67-6.22 tok/s end to end** | **139.4 ms** |
+| dual-core exact head | 5.67-6.22 tok/s end to end | 139.4 ms |
+| **int8-staged head + int8 activations** | **~9.5 tok/s end to end** | **102.9 ms** |
 
-The final model-step time repeated at exactly 139.4ms in two full runs,
-equivalent to **7.17 tok/s compute-only**. End-to-end timing also includes USB
-serial writes and depends on when the monitor attaches; 5.67-6.22 tok/s is the
-observed attached range. The material exact optimizations were: staging the head
+The int8 head is the current runtime: **9.72 tok/s compute-only** (102.9 ms/step),
+a further 1.35x over the exact fp32 dual-core head. The output head is staged as
+int8 in PSRAM once at boot (int4 nibbles unpacked once), and activations are
+quantized to int8 per token, so each output row is a plain int8xint8 -> int32 dot
+with no per-token unpacking. **The int8-activation change was validated on host
+val perplexity (delta ~0, see firmware/host_verify/ppl.c) before shipping**, and
+on-chip text stays coherent. The scalar fp32 head (139.4ms) remains the exact
+baseline; the fp32 host golden still matches PyTorch to 1e-5.
+
+Profile after the int8 head (ms/token, dual-core wall): head 57.6 | attn 25.6 |
+ple 8.5 | ffn 6.9 | input 4.4. The head is now **PSRAM-bandwidth-bound, not
+compute-bound**: it reads 2.43MB of int8 weights per token, which at 60.7 MB/s is
+a ~40ms floor, so only ~17ms is compute. Literal S3 vector-SIMD would cut that
+17ms but not the 40ms bandwidth floor (bounded ~15% further gain). The bigger
+levers from here are reducing bytes-read (int4 head + SIMD unpack) or a
+smaller/factorised output head (a model change) -- not vectorising harder.
+
+The earlier fp32 exact optimizations (139.4ms baseline) were: staging the head
 in PSRAM, converting each fp16 group scale once, unpacking both int4 values per
 byte, applying a group scale after its dot product, compiling at `-O3`, skipping
 7,415 unreachable padded vocabulary rows, computing RoPE values once per token,

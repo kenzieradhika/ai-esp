@@ -56,11 +56,13 @@ Expected boot diagnostics for the current artifact:
 
 ```text
 model: V=32768 D=96 L=6 H=4 F=66 P=128
-head staged in PSRAM: 1.64 MB
-PSRAM free after alloc: 5228 KB
+head staged int8: 2.53 MB
+PSRAM free after alloc: ~5100 KB
 ```
 
-The current exact baseline is 139.4ms per model step (7.17 tok/s compute-only)
-across two 200-token runs. Attached serial runs measured 5.67-6.22 tok/s
-including output. The on-device profile is 93.2ms output head, 26.4ms attention,
-12.9ms combined PLE input/path, and 6.9ms FFN per token.
+The current runtime measures 102.9ms per model step (9.72 tok/s compute-only);
+attached serial runs measure ~9.5 tok/s including output. On-device profile:
+57.6ms output head, 25.6ms attention, 8.5ms PLE path, 6.9ms FFN, 4.4ms input.
+The head is staged as int8 with int8 activations (host-validated, val perplexity
+delta ~0) and is now PSRAM-bandwidth-bound. The fp32 host golden still matches
+PyTorch to 1e-5.
