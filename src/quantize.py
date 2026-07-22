@@ -73,8 +73,10 @@ def load(path, device):
 
 
 @torch.no_grad()
-def val_loss(model, vocab, device, iters=60, bs=16, sl=256, seed=1234):
-    suffix = "" if vocab == 4096 else f"_v{vocab}"
+def val_loss(model, vocab, device, iters=60, bs=16, sl=256, seed=1234, suffix=""):
+    # vocab picks the base bin name; suffix adds the domain tag, e.g. "_id" for
+    # the Indonesian chat bins (val_v32768_id.bin), matching train.py's naming.
+    suffix = ("" if vocab == 4096 else f"_v{vocab}") + suffix
     data = np.memmap(os.path.join(DATA, f"val{suffix}.bin"), dtype=np.uint16, mode="r")
     rng = np.random.default_rng(seed)
     losses = []
@@ -94,6 +96,8 @@ def main():
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--fp16-scales", action="store_true",
                     help="round quantization scales to fp16 like the flash format")
+    ap.add_argument("--data-suffix", default="",
+                    help="extra val-bin suffix, e.g. '_id' for the Indonesian bins")
     args = ap.parse_args()
     device = get_device()
 
@@ -105,12 +109,12 @@ def main():
         cfg_vocab = torch.load(path, map_location="cpu", weights_only=False)["cfg"]["vocab_size"]
 
         m = load(path, device)
-        fp = val_loss(m, cfg_vocab, device)
+        fp = val_loss(m, cfg_vocab, device, suffix=args.data_suffix)
 
         m = load(path, device)  # fresh copy
         nq = quantize_model(m, args.bits, args.group, quant_table=True,
                             fp16_scales=args.fp16_scales)
-        q = val_loss(m, cfg_vocab, device)
+        q = val_loss(m, cfg_vocab, device, suffix=args.data_suffix)
 
         rows[arm] = (fp, q, nq)
         print(f"{arm:9s} fp32 val {fp:.4f} (ppl {math.exp(fp):.2f}) | "
