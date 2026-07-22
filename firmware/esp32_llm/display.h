@@ -19,11 +19,18 @@
 #define DISPLAY_KIND DISPLAY_OLED_I2C
 #endif
 
-// ======================= 1.3" I2C OLED (SH1106) =============================
+// ==================== 128x64 I2C OLED (SH1106 or SSD1306) ===================
 #if DISPLAY_KIND == DISPLAY_OLED_I2C
 #include <Adafruit_GFX.h>
-#include <Adafruit_SH110X.h>
 #include <Wire.h>
+
+// Set to match the panel you wired: 1.3" is usually SH1106, 0.96" usually SSD1306.
+// Wrong choice -> shifted/garbled image; just switch this and reflash.
+#define OLED_SH1106  1
+#define OLED_SSD1306 2
+#ifndef OLED_CONTROLLER
+#define OLED_CONTROLLER OLED_SH1106
+#endif
 
 #define OLED_SDA 8
 #define OLED_SCL 9
@@ -33,7 +40,16 @@
 #define CW 6                    // 6x8 base glyph at text size 1
 #define CH 8
 
+#if OLED_CONTROLLER == OLED_SH1106
+#include <Adafruit_SH110X.h>
 static Adafruit_SH1106G oled = Adafruit_SH1106G(SCR_W, SCR_H, &Wire, -1);
+#define OLED_WHITE SH110X_WHITE
+#else
+#include <Adafruit_SSD1306.h>
+static Adafruit_SSD1306 oled = Adafruit_SSD1306(SCR_W, SCR_H, &Wire, -1);
+#define OLED_WHITE SSD1306_WHITE
+#endif
+
 static int ox = 0, oy = 0;
 
 static void display_home() {
@@ -43,10 +59,14 @@ static void display_home() {
 
 static void display_begin() {
   Wire.begin(OLED_SDA, OLED_SCL);
+#if OLED_CONTROLLER == OLED_SH1106
   oled.begin(OLED_ADDR, true);
+#else
+  oled.begin(SSD1306_SWITCHCAPVCC, OLED_ADDR);
+#endif
   oled.clearDisplay();
   oled.setTextSize(1);
-  oled.setTextColor(SH110X_WHITE);
+  oled.setTextColor(OLED_WHITE);
   oled.setTextWrap(false);      // we wrap at token boundaries ourselves
   oled.display();
   display_home();
