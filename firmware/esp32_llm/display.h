@@ -29,11 +29,11 @@
 #define OLED_SH1106  1
 #define OLED_SSD1306 2
 #ifndef OLED_CONTROLLER
-#define OLED_CONTROLLER OLED_SH1106
+#define OLED_CONTROLLER OLED_SSD1306
 #endif
 
-#define OLED_SDA 8
-#define OLED_SCL 9
+#define OLED_SDA 18
+#define OLED_SCL 46
 #define OLED_ADDR 0x3C          // some panels are 0x3D
 #define SCR_W 128
 #define SCR_H 64
@@ -59,6 +59,7 @@ static void display_home() {
 
 static void display_begin() {
   Wire.begin(OLED_SDA, OLED_SCL);
+  Wire.setClock(400000);   // 400kHz fast I2C -> ~4x quicker frame flush than default
 #if OLED_CONTROLLER == OLED_SH1106
   oled.begin(OLED_ADDR, true);
 #else
@@ -89,6 +90,21 @@ static void display_puts(const unsigned char *s, int len) {
     }
     if (oy + CH > SCR_H) display_home();
   }
+  oled.display();
+}
+
+// Closing stats card shown when generation finishes.
+static void display_stats(float tok_s, float ms) {
+  oled.clearDisplay();
+  oled.setTextColor(OLED_WHITE);
+  oled.setTextSize(1);
+  oled.setCursor(0, 0);  oled.print("ESP32-S3  PLE LLM");
+  oled.setCursor(0, 14); oled.print("28.9M params");
+  oled.setCursor(0, 24); oled.print("in 320KB of RAM");
+  oled.setTextSize(2);
+  oled.setCursor(0, 40); oled.print(tok_s, 1); oled.print(" tok/s");
+  oled.setTextSize(1);
+  oled.setCursor(0, 57); oled.print(ms, 0); oled.print(" ms/token");
   oled.display();
 }
 
@@ -144,6 +160,21 @@ static void display_puts(const unsigned char *s, int len) {
     if (tft.getCursorY() + LINE_H > TFT_H)
       display_home();
   }
+}
+
+// Closing stats card shown when generation finishes.
+static void display_stats(float tok_s, float ms) {
+  tft.fillScreen(ST77XX_BLACK);
+  tft.setTextColor(ST77XX_GREEN, ST77XX_BLACK);
+  tft.setTextSize(2);
+  tft.setCursor(4, 10);  tft.print("ESP32-S3");
+  tft.setCursor(4, 40);  tft.print("PLE TinyLM");
+  tft.setCursor(4, 90);  tft.print("28.9M params");
+  tft.setCursor(4, 120); tft.print("in 320KB RAM");
+  tft.setTextSize(3);
+  tft.setCursor(4, 170); tft.print(tok_s, 1); tft.print(" t/s");
+  tft.setTextSize(2);
+  tft.setCursor(4, 220); tft.print(ms, 0); tft.print(" ms/token");
 }
 
 #endif
