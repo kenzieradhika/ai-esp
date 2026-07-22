@@ -14,7 +14,7 @@
 
 // Set to 1 once a GMT020-02-7P (2.0" 240x320 ST7789) is wired up — see display.h.
 // Leave 0 to run serial-only (no panel needed).
-#define USE_DISPLAY 0
+#define USE_DISPLAY 1
 #if USE_DISPLAY
 #include "display.h"
 #endif
@@ -27,7 +27,10 @@ static void emit(int tok) {
   if (tok >= VOCAB_N) return;
   const unsigned char *bytes = VOCAB_BLOB + VOCAB_OFF[tok];
   int len = VOCAB_OFF[tok + 1] - VOCAB_OFF[tok];
-  Serial.write(bytes, len);
+  // Non-blocking: when no host is draining the USB-CDC buffer (running as a
+  // standalone gadget on the display), skip the write instead of stalling the
+  // whole generation once the TX buffer fills.
+  if ((int)Serial.availableForWrite() >= len) Serial.write(bytes, len);
 #if USE_DISPLAY
   display_puts(bytes, len);
 #endif
@@ -218,6 +221,10 @@ void setup() {
                   s.profile.ffn_us / n, s.profile.ple_us / n,
                   s.profile.head_us / n);
   }
+#if USE_DISPLAY
+  // Closing card: compute-only tok/s (the model's own speed) + ms/token.
+  display_stats(decoded * 1e6f / decode_us, decode_us / 1000.0f / decoded);
+#endif
   blink(0);
 }
 
