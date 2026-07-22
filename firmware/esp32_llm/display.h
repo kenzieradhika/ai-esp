@@ -1,10 +1,10 @@
 // Optional on-device screen for the demo: the story appears on a display wired
 // to the ESP32 itself, no laptop. Two panels supported via DISPLAY_KIND:
 //
-//   DISPLAY_OLED_I2C (default) -- 1.3" 128x64 I2C mono OLED, SH1106 controller
-//     (the common 1.3" panel). 4 wires: GND, VCC->3V3, SCL->GPIO9, SDA->GPIO8.
-//     If the image is shifted/garbled it's an SSD1306 instead -> set
-//     OLED_CONTROLLER to SSD1306 below.
+//   DISPLAY_OLED_I2C (default) -- 128x64 I2C mono OLED. 4 wires:
+//     GND->GND, VCC->3V3, SCL->GPIO46, SDA->GPIO18. Set OLED_CONTROLLER to match
+//     the panel: 1.3" is usually SH1106, 0.96" usually SSD1306. Wrong choice ->
+//     top row correct, rest noise (SH1106-as-SSD1306) -> flip the define.
 //   DISPLAY_TFT_SPI -- 2.0" 240x320 SPI ST7789 (GMT020-02-7P). Wiring in the TFT
 //     block below. Nicer color hero shot for later.
 //
@@ -29,7 +29,7 @@
 #define OLED_SH1106  1
 #define OLED_SSD1306 2
 #ifndef OLED_CONTROLLER
-#define OLED_CONTROLLER OLED_SSD1306
+#define OLED_CONTROLLER OLED_SH1106
 #endif
 
 #define OLED_SDA 18
