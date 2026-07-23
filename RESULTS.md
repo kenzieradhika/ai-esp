@@ -15,9 +15,11 @@ figure.
 
 ## Headline (the deployable config)
 
-Vocab 32768, core-matched across arms at ~559K params (273KB at 4-bit, fits the
-ESP32-S3's ~320KB usable internal SRAM), 25M-param PLE table (12MB flash),
-d_model=96, 6 layers, ple_dim=128. Two seeds.
+Vocab 32768, core-matched across arms at ~559K params (273KB at 4-bit, small
+enough for the ESP32-S3's 512KB internal SRAM; the design constraint that sized
+it. The polished firmware in fact leaves the core flash-mapped XIP, which
+measured fast enough — see the on-chip section), 25M-param PLE table (12MB
+flash), d_model=96, 6 layers, ple_dim=128. Two seeds.
 
 | arm | core | total | ppl | vs baseline |
 |---|---:|---:|---:|---:|
@@ -30,9 +32,10 @@ d_model=96, 6 layers, ple_dim=128. Two seeds.
 - **Per-layer injection beats bottom injection by 0.046 nats** (`ple` vs
   `fatembed`, both 2 seeds). At realistic vocab the *where* of injection is worth
   roughly 2x the params-at-the-bottom approach.
-- Framed against the reference project (DaveBben's esp32-llm, 260K params on an
-  ESP32-S3): this is ~110x the resident parameter count, on a tighter fast-memory
-  budget, with the extra params living in flash as a per-token-sparse table.
+- As comparison context (prior independent work, no relation to this codebase):
+  DaveBben's esp32-llm ran 260K params on an ESP32-S3. This is ~110x the stored
+  parameter count, on a tighter fast-memory budget, with the extra params living
+  in flash as a per-token-sparse table.
 
 **What "28.9M params" does and does not mean.** It is 28.9M *stored* parameters:
 a 559K dense core (SRAM), a 3.1M output head (streamed sequentially), and a 25M
@@ -155,8 +158,10 @@ byte, applying a group scale after its dot product, compiling at `-O3`, skipping
 caching attention scores, and splitting independent output rows across both
 LX7 cores.
 
-Final on-device profile, averaged over 200 generated tokens (wall-time share;
-the head runs on both cores, so its *compute* share is higher — ~80% — than its
+Historical profile of that earlier exact fp32-head path (139.4ms/step, superseded
+by the int8 head; the current runtime's profile is the 57.6 | 25.6 | 8.5 | 6.9 |
+4.4 breakdown above), averaged over 200 generated tokens (wall-time share; the
+head runs on both cores, so its *compute* share is higher — ~80% — than its
 wall share):
 
 | stage | ms/token (wall) | wall share |
@@ -176,13 +181,14 @@ entire attention opportunity at 26.4ms and the other items at low single-digit
 milliseconds. They are intentionally deferred rather than presented as another
 large scalar speedup.
 
-This is much lower than the 58 tok/s bandwidth ceiling and disproves the earlier
-20-40 tok/s compute estimate for the naive scalar kernel. It is nevertheless in
-the same practical speed range as the cited 260K-parameter ESP32 project while
-holding roughly 110x as many stored parameters. The next large speed step is a
-new kernel/model milestone: validated ESP32-S3 SIMD with quantized activations,
-or a factorized/smaller output head—not more scalar cleanup and not a question
-about PLE table bandwidth.
+The measured throughput is much lower than the 58 tok/s bandwidth ceiling and
+disproves the earlier 20-40 tok/s compute estimate for the naive scalar kernel.
+It is nevertheless in the same practical speed range as the prior independent
+260K-parameter ESP32 project (comparison context only) while holding roughly
+110x as many stored parameters. With int8 activations now shipped and the head
+PSRAM-bandwidth-bound, the next large speed step is reducing bytes read (an
+int4-in-PSRAM head with SIMD unpack) or a factorized/smaller output head — not
+more scalar cleanup and not a question about PLE table bandwidth.
 
 ## 4-bit quantization: the gain survives (2026-07-21)
 
@@ -219,18 +225,24 @@ the same two-seed conclusion as the group-64 headline PTQ check.
 
 ## Remaining limitations
 
-- **The exact inference kernel still uses scalar dot products.** The measured
-  7.17 tok/s model rate uses both cores but leaves the ESP32-S3's SIMD integer
-  instructions unused. Using them requires activation quantization and a fresh
-  quality/golden validation; it is not a semantics-free code tweak. The 58 tok/s
-  number remains only a bandwidth ceiling.
+- **The ESP32-S3's SIMD instructions remain unused.** The shipping runtime
+  (~9.5 tok/s end to end) quantizes activations to int8, host-validated, but its
+  dot products are still scalar. The head is PSRAM-bandwidth-bound (a ~40ms
+  read floor inside its 57.6ms), so SIMD alone buys a bounded ~15%; the real
+  levers are reducing bytes read (int4 head + SIMD unpack) or a smaller head.
+  The 58 tok/s number remains only a bandwidth ceiling.
 - **Domain is TinyStories.** World knowledge, arithmetic, and multi-step reasoning
   remain absent; that ceiling is set by the dense core, not moved by the table.
-- **Prior art must be credited.** TinyStories = Eldan & Li, Microsoft Research
-  (arXiv:2305.07759). llama2.c and the shipped checkpoints = Karpathy. esp32-llm
-  (running the 260K checkpoint on hardware) = DaveBben. The novel claim here is
-  narrowly: applying Gemma-style Per-Layer Embeddings to a microcontroller
-  SRAM/flash hierarchy so a larger stored model fits than fast memory allows.
+- **Provenance.** This is independent work. Its actual dependencies are the
+  TinyStories dataset (Eldan & Li, Microsoft Research, arXiv:2305.07759) and
+  Google's published Gemma Per-Layer Embeddings design (reproduced from the
+  `transformers` Gemma implementation and Google's documentation). No code,
+  model, checkpoint, or method derives from llama2.c (Karpathy) or from
+  DaveBben's esp32-llm; both are prior independent work in the tiny-LM /
+  microcontroller space and appear in this document only as comparison context.
+  The novel claim here is narrowly: applying Gemma-style Per-Layer Embeddings
+  to a microcontroller SRAM/flash hierarchy so a larger stored model fits than
+  fast memory allows.
 
 ## Next
 

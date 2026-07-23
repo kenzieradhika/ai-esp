@@ -27,8 +27,9 @@ import argparse
 SRAM_BYTES = 320 * 1024  # 512KB internal, minus IDF/stack/buffers. Conservative.
 PSRAM_BYTES = 8 * 1024 * 1024
 FLASH_BYTES = 15 * 1024 * 1024  # 16MB minus ~1MB firmware.
-# Measured octal-SPI figures are pending real hardware; these are the commonly
-# quoted range and every derived tok/s below is an ESTIMATE until benchmarked.
+# HISTORICAL PLANNING NUMBERS, kept so early sizing decisions stay reproducible.
+# Real measurements exist now (RESULTS.md): PSRAM 60.7 MB/s, flash 20.3us/512B
+# random read, ~9.5 tok/s end to end. This file is not deployment authority.
 PSRAM_BW = 60e6  # bytes/sec
 FLASH_BW = 60e6  # bytes/sec, sequential
 
