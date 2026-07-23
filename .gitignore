@@ -16,3 +16,11 @@ firmware/model/model.bin
 firmware/model/golden.npz
 firmware/model/golden.txt
 firmware/esp32_llm/vocab.h
+
+# raw video / recordings (demo footage — keep out of the repo)
+video/
+videos/
+*.mp4
+*.mov
+*.MOV
+*.MP4
