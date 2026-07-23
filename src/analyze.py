@@ -16,6 +16,8 @@ LABEL = {
     "fatembed": "fatembed      (bottom-only table)",
     "bigcore": "bigcore       (2x core, no table)",
 }
+# Every arm train.py can emit must appear here, or its runs are silently
+# dropped from the summary (load() keys by arm, main() iterates ORDER).
 ORDER = ["baseline", "ple_notable", "fatembed", "ple", "bigcore"]
 
 
@@ -37,6 +39,12 @@ def main():
     if not by_arm:
         print("no runs found")
         return
+
+    # An arm that is not in ORDER never gets printed, so a run can silently
+    # vanish from the summary. Say so rather than hiding it.
+    unknown = sorted(set(by_arm) - set(ORDER))
+    if unknown:
+        print(f"warning: ignoring runs for unknown arm(s): {', '.join(unknown)}")
 
     print(f"{'arm':38s} {'core':>10s} {'table':>10s} {'val loss':>10s} {'ppl':>9s} {'n':>3s}")
     print("-" * 84)
