@@ -6,7 +6,7 @@ import os
 import torch
 from tokenizers import Tokenizer
 
-from model import Config, TinyLM
+from model import load_checkpoint
 from train import get_device
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -24,10 +24,7 @@ def main():
     args = ap.parse_args()
 
     device = get_device()
-    ck = torch.load(args.run, map_location=device, weights_only=False)
-    model = TinyLM(Config(**ck["cfg"])).to(device)
-    model.load_state_dict(ck["state"])
-    model.eval()
+    model = load_checkpoint(args.run, device)
 
     tok = Tokenizer.from_file(args.tok)
     ids = torch.tensor([tok.encode(args.prompt).ids], device=device)

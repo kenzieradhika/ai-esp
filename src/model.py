@@ -333,3 +333,16 @@ def make_model(arm, target_core, base: Config = None, verbose=True, fixed_ffn=No
             f"total={b['total']:,}"
         )
     return model
+
+
+def load_checkpoint(path, device="cpu"):
+    """Load a runs/*.pt checkpoint into an eval-mode TinyLM.
+
+    The checkpoint stores {"cfg": dataclass-dict, "state": state_dict}; every
+    consumer (sample/chat/quantize) reconstructs the same way, so keep it here.
+    """
+    ck = torch.load(path, map_location=device, weights_only=False)
+    model = TinyLM(Config(**ck["cfg"])).to(device)
+    model.load_state_dict(ck["state"])
+    model.eval()
+    return model

@@ -18,7 +18,7 @@ import os
 import numpy as np
 import torch
 
-from model import Config, TinyLM
+from model import load_checkpoint
 from train import get_device
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -65,11 +65,7 @@ def quantize_model(model, bits=4, group=64, quant_table=True, fp16_scales=False)
 
 
 def load(path, device):
-    ck = torch.load(path, map_location=device, weights_only=False)
-    m = TinyLM(Config(**ck["cfg"])).to(device)
-    m.load_state_dict(ck["state"])
-    m.eval()
-    return m
+    return load_checkpoint(path, device)
 
 
 @torch.no_grad()
