@@ -10,7 +10,7 @@ import math
 import pytest
 import torch
 
-from model import Config, TinyLM, apply_rope, build_rope, make_model
+from model import Config, TinyLM, apply_rope, build_rope, load_checkpoint, make_model
 
 SMALL = dict(vocab_size=256, d_model=32, n_layers=2, n_heads=4, ffn_hidden=64,
              seq_len=32, ple_dim=16)
@@ -84,3 +84,17 @@ def test_rope_is_rotation_preserving():
     y = apply_rope(x, cos, sin)
     # RoPE is a rotation: it preserves the per-head norm.
     assert torch.allclose(x.norm(dim=-1), y.norm(dim=-1), atol=1e-5)
+
+
+def test_load_checkpoint_roundtrips(tmp_path):
+    # The checkpoint format every consumer reads: {"cfg", "state"} -> eval model
+    # with identical weights. A shape/name drift here silently loads garbage.
+    m = TinyLM(cfg("ple"))
+    path = tmp_path / "run.pt"
+    torch.save({"cfg": m.cfg.__dict__, "state": m.state_dict()}, path)
+    got = load_checkpoint(str(path), "cpu")
+    assert got.cfg.arm == "ple"
+    assert not got.training
+    for (n, a), (n2, b) in zip(m.state_dict().items(), got.state_dict().items(),
+                              strict=True):
+        assert n == n2 and torch.equal(a, b)
