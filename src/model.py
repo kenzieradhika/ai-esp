@@ -263,7 +263,13 @@ class TinyLM(nn.Module):
         for _ in range(max_new_tokens):
             idx_c = idx[:, -self.cfg.seq_len :]
             logits, _ = self(idx_c)
-            logits = logits[:, -1, :] / temperature
+            logits = logits[:, -1, :]
+            if temperature <= 0:
+                # Greedy: sampling at temperature 0 would divide by zero. Take the
+                # argmax directly so callers can request deterministic decoding.
+                idx = torch.cat([idx, logits.argmax(dim=-1, keepdim=True)], dim=1)
+                continue
+            logits = logits / temperature
             if top_k:
                 v, _ = torch.topk(logits, min(top_k, logits.size(-1)))
                 logits[logits < v[:, [-1]]] = -float("inf")

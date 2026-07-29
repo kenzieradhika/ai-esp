@@ -76,3 +76,15 @@ def test_generate_clips_context_to_seq_len():
     prompt = torch.randint(0, 64, (1, 20))
     out = m.generate(prompt, max_new_tokens=3, temperature=1.0, top_k=0)
     assert out.shape == (1, 23)
+
+
+def test_generate_temperature_zero_is_greedy_not_divzero():
+    # temperature=0 must decode deterministically (argmax), not divide by zero.
+    c = Config(arm="baseline", vocab_size=64, d_model=32, n_layers=1,
+               n_heads=4, ffn_hidden=64, seq_len=16, ple_dim=16)
+    m = TinyLM(c).eval()
+    prompt = torch.randint(0, 64, (1, 5))
+    a = m.generate(prompt, max_new_tokens=6, temperature=0.0, top_k=0)
+    b = m.generate(prompt, max_new_tokens=6, temperature=0.0, top_k=0)
+    assert torch.equal(a, b)  # deterministic
+    assert a.shape == (1, 11)
