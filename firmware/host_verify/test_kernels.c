@@ -155,6 +155,34 @@ static void test_load_rejects_bad_header(void) {
   CHECK(llm_load(buf, &m) == -1, "dim over the activation buffer must be rejected");
 }
 
+// quantize_act: symmetric int8 with a clamp at +/-127, and the returned scale
+// must reconstruct the max magnitude to within a quantization step.
+static void test_quantize_act(void) {
+#ifdef LLM_INT8_ACT
+  float x[5] = {0.0f, 1.0f, -2.0f, 0.5f, -0.25f};
+  int8_t xq[5];
+  float xs;
+  quantize_act(x, 5, xq, &xs);
+  // max |x| = 2 -> scale = 2/127, and the max element must map to +/-127.
+  CHECK(fabsf(xs - 2.0f / 127.0f) < 1e-7f, "x_scale=%g want %g", xs, 2.0f / 127.0f);
+  CHECK(xq[2] == -127, "max magnitude should clamp to -127, got %d", xq[2]);
+  CHECK(xq[1] == 63 || xq[1] == 64, "1.0/scale ~ 63.5, got %d", xq[1]);
+  CHECK(xq[0] == 0, "zero input should quantize to 0, got %d", xq[0]);
+  for (int i = 0; i < 5; i++) {
+    float back = (float)xq[i] * xs;
+    CHECK(fabsf(back - x[i]) <= fabsf(xs) + 1e-6f,
+          "reconstruction %g vs %g within a step", back, x[i]);
+  }
+
+  // All-zero input must not divide by zero: scale stays the 1e-8 floor.
+  float z[3] = {0.f, 0.f, 0.f};
+  int8_t zq[3];
+  float zs;
+  quantize_act(z, 3, zq, &zs);
+  CHECK(zs > 0.f && zq[0] == 0 && zq[1] == 0 && zq[2] == 0, "zero vector handled");
+#endif
+}
+
 int main(void) {
   // llm_load/llm_forward are unused here (no model file), but referencing them
   // keeps the header warning-free under -Werror without compiling them out.
@@ -164,6 +192,7 @@ int main(void) {
   test_ragged_odd_cols();
   test_matvec_range_matches_full();
   test_norm_activations();
+  test_quantize_act();
   test_load_rejects_bad_header();
   if (fails) { printf("%d kernel test(s) FAILED\n", fails); return 1; }
   printf("kernel tests PASS\n");
