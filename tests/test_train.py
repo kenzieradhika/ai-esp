@@ -27,3 +27,38 @@ def test_cosine_decays_to_floor():
 def test_lr_is_monotone_non_increasing_after_peak():
     vals = [lr_at(s, 200, 1e-3, 20) for s in range(20, 200, 7)]
     assert all(b <= a + 1e-12 for a, b in zip(vals, vals[1:], strict=False))
+
+
+def test_batcher_shapes_and_alignment(tmp_path, monkeypatch):
+    # Batcher reads a uint16 memmap and returns (x, y) where y is x shifted by
+    # one token: the training target. If the shift drifts, every arm trains on
+    # the wrong objective and RESULTS.md becomes meaningless.
+    import numpy as np
+    import torch
+
+    import train
+
+    data = np.arange(1000, dtype=np.uint16)
+    path = tmp_path / "train.bin"
+    data.tofile(path)
+    monkeypatch.setattr(train, "DATA", str(tmp_path))
+
+    b = train.Batcher("train", batch_size=4, seq_len=8, device="cpu")
+    x, y = b()
+    assert x.shape == (4, 8) and y.shape == (4, 8)
+    assert torch.equal(y[:, :-1], x[:, 1:])  # y is x shifted one to the right
+
+
+def test_val_batcher_is_deterministic(tmp_path, monkeypatch):
+    # The val batcher seeds with a fixed rng so every arm is scored on identical
+    # batches; two fresh val batchers must produce the same draw.
+    import numpy as np
+
+    import train
+
+    np.arange(1000, dtype=np.uint16).tofile(tmp_path / "val.bin")
+    monkeypatch.setattr(train, "DATA", str(tmp_path))
+
+    a = train.Batcher("val", 4, 8, "cpu")()
+    b = train.Batcher("val", 4, 8, "cpu")()
+    assert (a[0] == b[0]).all() and (a[1] == b[1]).all()
