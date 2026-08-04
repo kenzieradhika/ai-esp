@@ -223,6 +223,41 @@ PLE's edge is +0.101/+0.095 nats in fp32 and +0.127/+0.115 in the shipping
 format: **126%/121% retained**. Thus the exact bytes flashed to the board have
 the same two-seed conclusion as the group-64 headline PTQ check.
 
+## Indonesian chat model (feasibility, 2026-08-04)
+
+The deployable PLE config, fine-tuned on Indonesian chat instead of TinyStories,
+so the board answers instead of only writing stories.
+
+- **Data** (`data/prepare_id.py`): `daruokta/t5gemma2-indonesia-chat-formatted`
+  (chat_sft split, 37,242 samples), reformatted to `...\nJawaban: <answer>\n<|endoftext|>`
+  so the device can prompt with `user: <line>\nJawaban:` and let the model continue.
+  System lines dropped; answers stripped of `<unusedN>` markers.
+- **Tokenizer**: fresh BPE, vocab 32768, trained on the Indonesian text
+  (`data/bpe_id32768.json`); `<|endoftext|>` = id 0. The firmware assets
+  (`bpe.h`, `vocab.h`) were regenerated for it (`src/gen_assets.py --tok`).
+- **Corpus**: 37,325,890 train / 187,567 val tokens, 4.45 bytes/token.
+- **Training**: 1500 steps from scratch (12.29M tokens seen, ~76 min on one GPU),
+  `runs/ple-idfeas-s0.pt`. train 3.958 / val 4.509 → **val ppl 90.81**. The loss
+  was still falling steadily, so a full ~5000-step run is the follow-up.
+
+| step | train | val |
+|---|---:|---:|
+| 0 | 10.402 | 10.394 |
+| 250 | 5.638 | 5.820 |
+| 500 | 4.902 | 5.065 |
+| 750 | 4.217 | 4.765 |
+| 1000 | 4.296 | 4.625 |
+| 1250 | 4.066 | 4.546 |
+| 1499 | 3.958 | 4.509 |
+
+- **On chip**: replies are coherent Bahasa Indonesia in the `user:/Jawaban:`
+  format, generated end to end on the ESP32-S3 with nothing sent to a server
+  (~5.4-5.7 tok/s end to end measured; 80-token reply ~15 s, 200-token story
+  ~37 s). Same runtime as the headline (int8-staged head, flash-mapped table).
+- **Honest limits**: the 559K core is still tiny — arithmetic is unreliable,
+  and answers drift toward the dataset's dominant topics (tips/checklists).
+  Expect a conversational toy, not a knowledgeable assistant.
+
 ## Remaining limitations
 
 - **The ESP32-S3's SIMD instructions remain unused.** The shipping runtime
@@ -231,8 +266,10 @@ the same two-seed conclusion as the group-64 headline PTQ check.
   read floor inside its 57.6ms), so SIMD alone buys a bounded ~15%; the real
   levers are reducing bytes read (int4 head + SIMD unpack) or a smaller head.
   The 58 tok/s number remains only a bandwidth ceiling.
-- **Domain is TinyStories.** World knowledge, arithmetic, and multi-step reasoning
-  remain absent; that ceiling is set by the dense core, not moved by the table.
+- **Domain is TinyStories / light chat.** The shipped model is the Indonesian
+  chat fine-tune; the TinyStories story model remains the cleanest domain
+  measurement. World knowledge, arithmetic, and multi-step reasoning remain
+  absent; that ceiling is set by the dense core, not moved by the table.
 - **Provenance.** This is independent work. Its actual dependencies are the
   TinyStories dataset (Eldan & Li, Microsoft Research, arXiv:2305.07759) and
   Google's published Gemma Per-Layer Embeddings design (reproduced from the
@@ -246,8 +283,8 @@ the same two-seed conclusion as the group-64 headline PTQ check.
 
 ## Next
 
-1. Add interactive serial prompting/tokenization, then dialogue fine-tuning for
-   the simple-conversation milestone.
-2. Record the on-chip text-generation demo and publish the measured result.
+1. **Full Indonesian chat run**: extend the 1500-step feasibility to ~5000 steps
+   (~4 h) and re-measure val ppl and on-chip drift.
+2. Record the on-chip Indonesian chat demo and publish the measured result.
 3. Treat an ESP32-S3 SIMD/int8 head as a separate experiment and compare its
    quality and speed against the exact 139.4ms/token baseline.

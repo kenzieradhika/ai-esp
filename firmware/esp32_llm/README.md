@@ -4,6 +4,42 @@ This sketch runs the 28.9M-parameter PLE TinyLM on an ESP32-S3 N16R8. The model
 lives in the custom `model` flash partition at `0x110000`; the tied
 embedding/output head is staged in PSRAM at boot.
 
+The firmware now talks back: it runs an **Indonesian chat model** (format
+`user: <you>\nJawaban:`) with a small word memory in flash. See
+[Chat and memory](#chat-and-memory) below.
+
+## Windows: serial chat UI
+
+```bat
+cd D:\esp32-ai
+.venv\Scripts\python firmware\prompt_ui.py          :: auto-detects the port
+.venv\Scripts\python firmware\prompt_ui.py COM7     :: or pass it explicitly
+```
+
+Type a line and press Enter. The device prints `thinking...` while the model
+runs, then the reply. Ctrl+C to exit. Anything you type that is not a command
+is fed to the model.
+
+## Chat and memory
+
+Every line you send is matched against these patterns first:
+
+| pattern | effect |
+|---|---|
+| `story: <topic>` | generates a story, prompting `Ceritakan tentang {name} yang suka {like}. {topic}` (200 tokens, ~37 s) |
+| `nama aku <X>` / `panggil aku <X>` / `namaku <X>` / `my name is <X>` | saves your name to NVS (key `\|\|nama\|\|`) |
+| `aku suka <Y>` | saves a preference to NVS (key `\|\|suka\|\|`) |
+| `<X> artinya <Y>` / `<X> adalah <Y>` / `<X> means <Y>` / `<X>=<Y>` | stores the meaning of word X (key `\|\|X\|\|`) |
+| blank or whitespace-only line | ignored (sync line) |
+| anything else | sent to the model as `user: <line>\nJawaban:` (80 tokens, ~15 s) |
+
+Memory lives in an NVS `Preferences` namespace (`chatmem`, max 24 entries,
+FIFO eviction), so it survives reboots and firmware reflashes. Unfamiliar
+words in ordinary lines are picked up and remembered automatically, so the
+device picks up vocabulary as you talk to it. Display name:
+`Kamu bisa belajar kata baru dari percakapan.`.
+
+
 ## Build and verify
 
 Export the group-128 ragged-int4 model and verify the portable C runtime first:
@@ -49,7 +85,7 @@ changes can be uploaded without rewriting the model partition.
 The model used for the measurements below has SHA-256:
 
 ```text
-21067f5d78113f6c64a8720b05ff7e5c774dab0276797a522f81a6797253d97c
+94cdf8cfdfd4a3bb0bf880414f8ca270e0c82775063d30643fe8a37d6efb7acb
 ```
 
 Expected boot diagnostics for the current artifact:
