@@ -34,7 +34,14 @@ def bytes_to_unicode():
 
 
 def main():
-    tok = Tokenizer.from_file(TOK)
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--tok", default=TOK, help="path to the BPE tokenizer json")
+    ap.add_argument("--prompt", default=PROMPT, help="demo prompt to show ids for")
+    args = ap.parse_args()
+    tok_path = args.tok
+    demo_prompt = args.prompt
+    tok = Tokenizer.from_file(tok_path)
     V = tok.get_vocab_size()
     vocab = tok.get_vocab()  # token string -> id
 
@@ -66,7 +73,7 @@ def main():
     # tokens (GPT-2 alphabet), merge rank r -> id 257+r (asserted below).
     import json
 
-    raw = json.load(open(TOK, encoding="utf-8"))
+    raw = json.load(open(tok_path, encoding="utf-8"))
     merges = raw["model"]["merges"]  # [[a, b], ...] strings, rank order
     assert len(merges) == V - 257, f"expected {V-257} merges, got {len(merges)}"
     for r, (a, b) in enumerate(merges):
@@ -101,9 +108,9 @@ def main():
         f.write("#endif\n")
     print(f"wrote {OUT_BPE}: {len(merges)} merges, byte map 256 entries")
 
-    ids = tok.encode(PROMPT).ids
-    print(f'prompt "{PROMPT}" -> {len(ids)} ids: {ids}')
-    print(f"round-trip: {tok.decode(ids)!r}")
+    ids = tok.encode(demo_prompt).ids
+    print(f'prompt "{demo_prompt}" -> {len(ids)} ids: {ids}')
+    print(f'round-trip: {tok.decode(ids)!r}')
     print("\nPaste into the sketch:")
     print(f"static const int PROMPT_IDS[] = {{{', '.join(map(str, ids))}}};")
 

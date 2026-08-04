@@ -50,12 +50,33 @@ def open_port(name, tries=30):
     raise SystemExit(f"tidak bisa membuka port {name}. Cek kabel/board.")
 
 
+class PortHolder:
+    """Shared mutable reference to the open Serial object. The reader thread
+    swaps it when USB re-enumerates; the main thread always writes through it,
+    so it never touches a stale, closed port."""
+
+    def __init__(self, ser):
+        self.ser = ser
+
+
+def write_line(holder, data):
+    """Write with retry: if the port died (board reset), wait for the reader
+    thread to reopen it and then retry against the fresh object."""
+    for _ in range(30):
+        try:
+            holder.ser.write(data)
+            return
+        except (serial.SerialException, OSError):
+            time.sleep(1)
+    raise SystemExit("[prompt-ui] port tidak merespons, keluar.")
+
+
 class Reader(threading.Thread):
     """Serial -> stdout, and signals when a prompt window opens."""
 
-    def __init__(self, ser, port_name):
+    def __init__(self, holder, port_name):
         super().__init__(daemon=True)
-        self.ser = ser
+        self.holder = holder
         self.port_name = port_name
         self.prompt_open = threading.Event()
         self._tail = b""
@@ -63,23 +84,28 @@ class Reader(threading.Thread):
     def run(self):
         while True:
             try:
-                chunk = self.ser.read(4096)
+                chunk = self.holder.ser.read(4096)
             except Exception:
                 # USB CDC re-enumerates on reset; reopen the port and continue.
                 time.sleep(1)
                 try:
-                    self.ser.close()
+                    self.holder.ser.close()
                 except Exception:
                     pass
                 try:
-                    self.ser = open_port(self.port_name, tries=30)
+                    self.holder.ser = open_port(self.port_name, tries=30)
                 except Exception:
                     continue
                 continue
             if not chunk:
                 continue
-            sys.stdout.write(chunk.decode("utf-8", "replace"))
-            sys.stdout.flush()
+            try:
+                # Write raw bytes: avoids Windows cp1252 UnicodeEncodeError on
+                # any UTF-8 (emojis etc.) the model emits.
+                sys.stdout.buffer.write(chunk)
+                sys.stdout.flush()
+            except Exception:
+                pass
             self._tail = (self._tail + chunk)[-32:]
             if self._tail.endswith(PROMPT_MARK):
                 self.prompt_open.set()
@@ -93,11 +119,12 @@ def main():
     print("[prompt-ui] menyinkronkan dengan ESP32...")
 
     ser = open_port(port)
-    reader = Reader(ser, port)
+    holder = PortHolder(ser)
+    reader = Reader(holder, port)
     reader.start()
     time.sleep(0.5)
     try:
-        ser.write(b"\n")  # force a fresh prompt window so we never miss the marker
+        write_line(holder, b"\n")  # force a fresh prompt window so we never miss the marker
     except Exception:
         pass
 
@@ -111,7 +138,7 @@ def main():
                 break
             if not line.strip():
                 continue
-            ser.write(line.encode("utf-8") + b"\n")
+            write_line(holder, line.encode("utf-8") + b"\n")
     except KeyboardInterrupt:
         print("\n[prompt-ui] selesai.")
     finally:

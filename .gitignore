@@ -3,10 +3,11 @@ __pycache__/
 .venv/
 *.pyc
 
-# data + tokenizers (regenerate with data/prepare.py)
+# data + tokenizers (regenerate with data/prepare.py, data/prepare_id.py)
 data/*.bin
 data/*.txt
 data/*.json
+data/*.parquet
 
 # training outputs
 runs/

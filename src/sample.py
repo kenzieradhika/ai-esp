@@ -19,6 +19,8 @@ def main():
     ap.add_argument("--tokens", type=int, default=200)
     ap.add_argument("--temperature", type=float, default=0.8)
     ap.add_argument("--samples", type=int, default=3)
+    ap.add_argument("--tok", default=os.path.join(HERE, "..", "data", "bpe4096.json"),
+                    help="path to the BPE tokenizer json matching the checkpoint")
     args = ap.parse_args()
 
     device = get_device()
@@ -27,7 +29,7 @@ def main():
     model.load_state_dict(ck["state"])
     model.eval()
 
-    tok = Tokenizer.from_file(os.path.join(HERE, "..", "data", "bpe4096.json"))
+    tok = Tokenizer.from_file(args.tok)
     ids = torch.tensor([tok.encode(args.prompt).ids], device=device)
 
     b = model.param_budget()

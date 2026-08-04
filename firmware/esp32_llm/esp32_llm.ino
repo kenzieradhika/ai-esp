@@ -364,6 +364,14 @@ static int mem_find(const char *w) {
   return -1;
 }
 
+// Meaning of a special key ("||nama||", "||suka||") or NULL. Special keys are
+// kept in the same NVS store; the recall loop ignores them because a literal
+// "||nama||" never appears in real chat lines.
+static const char *mem_value(const char *key) {
+  int i = mem_find(key);
+  return (i >= 0 && mem_m[i][0]) ? mem_m[i] : NULL;
+}
+
 static int mem_store(const char *w, const char *m) {
   int i = mem_find(w);
   if (i < 0) {
@@ -433,7 +441,14 @@ static int is_stopword(const char *w) {
 static int chat_reply(const char *line) {
   if (str_ci(line, "halo") || str_ci(line, "helo") || str_ci(line, "hello") ||
       str_ci(line, "assalamualaikum") || str_ci(line, " hai ") || str_ci(line, "hai ")) {
-    chat_say("Halo! Aku TinyLM, AI kecil yang sedang dikembangkan di ESP32-S3.");
+    const char *nm = mem_value("||nama||");
+    if (nm) {
+      char rep[192];
+      snprintf(rep, sizeof(rep), "Halo %s! Aku TinyLM, AI kecil yang sedang dikembangkan.", nm);
+      chat_say(rep);
+    } else {
+      chat_say("Halo! Aku TinyLM, AI kecil yang sedang dikembangkan di ESP32-S3.");
+    }
     chat_say("Aku masih tahap pengembangan, tapi senang ngobrol sama kamu. Ada yang mau ditanya?");
     return 1;
   }
@@ -448,18 +463,19 @@ static int chat_reply(const char *line) {
       str_ci(line, "dikembangkan") || str_ci(line, "under development") ||
       str_ci(line, "are you real") || str_ci(line, "kamu ai")) {
     chat_say("Ya, aku AI, dan jujur saja: aku masih sedang dikembangkan.");
-    chat_say("Aku dilatih dari cerita anak-anak, jadi cara bicaraku masih kaku dan");
-    chat_say("aku belum bisa menjawab banyak hal. Tapi setiap kali kamu ngobrol,");
-    chat_say("aku ikut 'belajar' dari caramu berinteraksi. Terima kasih sudah membantu!");
+    chat_say("Aku dilatih dari obrolan berbahasa Indonesia, jadi aku bisa menjawab");
+    chat_say("sendiri di chip ini -- tanpa internet. Tapi kadang jawabanku masih kaku.");
+    chat_say("Setiap kali kamu ngobrol, aku ikut 'belajar' dari caramu berinteraksi. Terima kasih!");
     return 1;
   }
   if (str_ci(line, "apa yang bisa") || str_ci(line, "what can you do") ||
       str_ci(line, "bisa apa")) {
     chat_say("Yang aku bisa sekarang: 1) ngobrol santai seperti ini,");
     chat_say("2) hitung sederhana, coba ketik 'what is 12+34?',");
-    chat_say("3) bikin cerita, ketik 'story: a dragon and a rabbit',");
-    chat_say("4) hafalkan kata baru: ketik '<kata> artinya <makna>'.");
-    chat_say("Masih sedikit, tapi aku sedang dikembangkan supaya makin banyak.");
+    chat_say("3) bikin cerita, ketik 'story: kucing dan tikus',");
+    chat_say("4) hafalkan kata baru: ketik '<kata> artinya <makna>', dan");
+    chat_say("5) kenali kamu: ketik 'nama aku Budi' atau 'aku suka biru'.");
+    chat_say("Kalau tidak kukenal pertanyaanmu, aku tetap coba jawab sendiri.");
     return 1;
   }
   if (str_ci(line, "terima kasih") || str_ci(line, "makasih") ||
@@ -475,9 +491,48 @@ static int chat_reply(const char *line) {
     return 1;
   }
 
+  // ---- profile: "nama aku X" / "panggil aku X" / "namaku X" / "my name is X" ----
+  const char *mk = NULL;
+  int mklen = 0;
+  static const char *MK[] = { "nama aku", "panggil aku", "namaku", "my name is" };
+  for (int i = 0; i < (int)(sizeof(MK) / sizeof(MK[0])); i++) {
+    mk = str_ci_str(line, MK[i]);
+    if (mk) { mklen = strlen(MK[i]); break; }
+  }
+  if (mk) {
+    const char *p = mk + mklen;  // skip the whole marker
+    while (*p == ' ') p++;
+    char nm[MEM_MLEN];
+    int nl = trim_copy(p, (int)strlen(p), nm, MEM_MLEN);
+    if (nl >= 2) {
+      mem_store("||nama||", nm);
+      char rep[192];
+      snprintf(rep, sizeof(rep), "Senang kenal kamu, %s! Namamu sudah kusimpan di memori flash.", nm);
+      chat_say(rep);
+      chat_say("Mulai sekarang cerita buatanmu akan pakai namamu. Aku tidak akan lupa.");
+      return 1;
+    }
+  }
+  // ---- profile: "aku suka Y" (preference used to flavor stories) ----
+  const char *suk = str_ci_str(line, "aku suka");
+  if (suk) {
+    const char *p = suk + 8;  // "aku suka"
+    while (*p == ' ') p++;
+    char sv[MEM_MLEN];
+    int sl = trim_copy(p, (int)strlen(p), sv, MEM_MLEN);
+    if (sl >= 2 && !is_stopword(sv)) {
+      mem_store("||suka||", sv);
+      char rep[192];
+      snprintf(rep, sizeof(rep), "Oke, kucatat: kamu suka %s. Ceritamu nanti bisa kubuat sesuai itu!", sv);
+      chat_say(rep);
+      return 1;
+    }
+  }
+
   // ---- teachable word memory: "<kata> artinya <makna>" ----
   const char *sep = str_ci_str(line, " artinya ");
   if (!sep) sep = str_ci_str(line, " means ");
+  if (!sep) sep = str_ci_str(line, " adalah ");
   if (!sep) sep = strchr(line, '=');
   if (sep) {
     char w[MEM_WLEN], m[MEM_MLEN];
@@ -522,28 +577,9 @@ static int chat_reply(const char *line) {
     }
   }
 
-  // ---- auto-learn: store an unknown word so it is recognized next time ----
-  const char *nw = pick_new_word(line);
-  if (nw) {
-    mem_store(nw, "");
-    char rep[192];
-    snprintf(rep, sizeof(rep), "Kata '%s' baru buatku -- aku catat di memori flash ya!", nw);
-    chat_say(rep);
-    snprintf(rep, sizeof(rep), "Kalau mau aku paham artinya, ajari: '%s artinya <makna>'.", nw);
-    chat_say(rep);
-    return 1;
-  }
-  // no keyword matched: canned "still learning" replies, never a story
-  static const char *FALLBACKS[] = {
-    "Hmm, aku belum paham maksudmu. Aku masih model yang sedang dikembangkan.",
-    "Menarik! Tapi aku belum belajar menjawab itu. Coba tanya yang lain?",
-    "Maaf, itu masih di luar kemampuanku sekarang. Tim masih mengembangkanku.",
-    "Aku belum tahu jawabannya. Kalau kamu mau, coba 'story: ...' biar aku bikin cerita.",
-    "Belum bisa, tapi suatu hari nanti aku akan bisa. Kamu bisa bantu dengan terus ngobrol!",
-    "Aku masih belajar. Semakin sering kamu ngobrol, semakin aku berkembang.",
-  };
-  chat_say(FALLBACKS[rng_next() % (sizeof(FALLBACKS) / sizeof(FALLBACKS[0]))]);
-  return 1;
+  // No keyword, no memory match: hand the line to the model (the caller
+  // generates a "user: ...\nJawaban:" continuation).
+  return 0;
 }
 
 // One full interaction: wait for a prompt line from serial (no timeout, no
@@ -587,14 +623,44 @@ static void run_generation() {
   }
 
   // ---- chat persona: replies to ordinary prompts, stories disabled ----
-  if (strncmp(line, "story:", 6) != 0) {
-    chat_reply(line);
-    blink(0);
-    delay(500);
-    return;
+  // Unmatched lines fall through to the model itself, prompted in the
+  // "user: ...\nJawaban:" chat format the Indonesian model was trained on.
+  int n_gen = N_GENERATE;
+  char *story_line;
+  char full[768];
+  if (strncmp(line, "story:", 6) == 0) {
+    char *s = line + 6;
+    while (*s == ' ') s++;
+    // Personalization: seed the request with the user's name/likes if known.
+    const char *nm = mem_value("||nama||");
+    const char *lk = mem_value("||suka||");
+    char pers[160];
+    if (nm && lk) snprintf(pers, sizeof(pers), "Ceritakan tentang %s yang suka %s. ", nm, lk);
+    else if (nm) snprintf(pers, sizeof(pers), "Ceritakan tentang %s. ", nm);
+    else if (lk) snprintf(pers, sizeof(pers), "Ceritakan tentang seseorang yang suka %s. ", lk);
+    else pers[0] = 0;
+    snprintf(full, sizeof(full), "user: %s%s\nJawaban:", pers, s);
+    story_line = full;
+  } else {
+    if (chat_reply(line)) {  // keyword or word-memory handled it
+      blink(0);
+      delay(500);
+      return;
+    }
+    // Empty/blank sync line (e.g. the UI's connect handshake): don't burn a
+    // model answer on it, just open a fresh prompt window.
+    int has_alpha = 0;
+    for (const char *c = line; *c; c++)
+      if ((*c >= 'a' && *c <= 'z') || (*c >= 'A' && *c <= 'Z')) { has_alpha = 1; break; }
+    if (!has_alpha) return;
+    // No keyword matched: let the model answer, and silently note any
+    // brand-new word so the recall memory can learn from it.
+    const char *nw = pick_new_word(line);
+    if (nw) mem_store(nw, "");
+    snprintf(full, sizeof(full), "user: %s\nJawaban:", line);
+    story_line = full;
+    n_gen = 80;  // chat answers are short: ~13 s at 6 tok/s
   }
-  char *story_line = line + 6;
-  while (*story_line == ' ') story_line++;
 
   int pids[MAX_PROMPT_TOKENS];
   int n_prompt = bpe_tokenize(story_line, pids, MAX_PROMPT_TOKENS);
@@ -618,7 +684,7 @@ static void run_generation() {
   llm_profile_reset(&s);
 
   t_start = esp_timer_get_time();
-  for (int step = 0; step < N_GENERATE && pos < model.c.seq_len; step++) {
+  for (int step = 0; step < n_gen && pos < model.c.seq_len; step++) {
     // sample with temperature + top-k + repetition penalty (no more loops)
     tok = sample_token(s.logits, VOCAB_N);
     hist_push(tok);

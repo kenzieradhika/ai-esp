@@ -77,14 +77,17 @@ def main():
     ap.add_argument("--vocab", type=int, default=4096)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--tag", default="")
+    ap.add_argument("--data-suffix", default="",
+                    help="extra bin suffix, e.g. '_id' for Indonesian chat bins "
+                         "(train_v{VOCAB}{suffix}.bin)")
     args = ap.parse_args()
 
     torch.manual_seed(args.seed)
     device = get_device()
     os.makedirs(RUNS, exist_ok=True)
 
-    # vocab 4096 uses the original train.bin/val.bin; other vocabs use suffixed bins.
-    suffix = "" if args.vocab == 4096 else f"_v{args.vocab}"
+    # vocab 4096 uses the original train.bin/val.bin; other vocabs use suffixed names.
+    suffix = ("" if args.vocab == 4096 else f"_v{args.vocab}") + args.data_suffix
 
     base = Config(seq_len=args.seq_len, ple_dim=args.ple_dim, vocab_size=args.vocab,
                   d_model=args.d_model, n_layers=args.n_layers, n_heads=args.n_heads)
