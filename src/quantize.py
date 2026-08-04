@@ -18,15 +18,19 @@ import os
 import numpy as np
 import torch
 
+from export import GROUP
 from model import load_checkpoint
 from train import get_device
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DATA = os.path.join(HERE, "..", "data")
 RUNS = os.path.join(HERE, "..", "runs")
+# The group size the flash artifact is actually packed with. Defaulting the
+# simulator to anything else reports a degradation for a model nobody ships.
+DEFAULT_GROUP = GROUP
 
 
-def quantize_groupwise(w, bits=4, group=64, fp16_scales=False):
+def quantize_groupwise(w, bits=4, group=DEFAULT_GROUP, fp16_scales=False):
     """Symmetric group-wise quant along the last dim; returns dequantized fp32.
 
     Simulates storage in `bits` with one fp scale per `group` consecutive weights
@@ -51,7 +55,7 @@ def quantize_groupwise(w, bits=4, group=64, fp16_scales=False):
     return dq.reshape(orig_shape).to(w.dtype)
 
 
-def quantize_model(model, bits=4, group=64, quant_table=True, fp16_scales=False):
+def quantize_model(model, bits=4, group=DEFAULT_GROUP, quant_table=True, fp16_scales=False):
     n_q = 0
     with torch.no_grad():
         for name, p in model.named_parameters():
@@ -87,7 +91,8 @@ def val_loss(model, vocab, device, iters=60, bs=16, sl=256, seed=1234, suffix=""
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--bits", type=int, default=4)
-    ap.add_argument("--group", type=int, default=64)
+    ap.add_argument("--group", type=int, default=DEFAULT_GROUP,
+                    help="group size; defaults to the flashed artifact's (%(default)d)")
     ap.add_argument("--tag", default="cleandeploy")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--fp16-scales", action="store_true",
