@@ -8,6 +8,7 @@ data/*.bin
 data/*.txt
 data/*.json
 data/*.parquet
+!data/bpe_id32768.json
 
 # training outputs
 runs/
@@ -16,7 +17,6 @@ runs/
 firmware/model/model.bin
 firmware/model/golden.npz
 firmware/model/golden.txt
-firmware/esp32_llm/vocab.h
 
 # raw video / recordings (demo footage — keep out of the repo)
 video/
@@ -28,6 +28,3 @@ videos/
 
 # build artifacts
 build/
-
-# generated firmware artifacts
-firmware/esp32_llm/bpe.h
