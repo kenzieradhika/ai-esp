@@ -1,0 +1,23 @@
+[ple] d_model=96 layers=6 ffn=66 core=558,368 stream=3,145,728 table=25,165,824 total=28,869,920
+ple-cleandeploy-s0 step     0 | tok    0.0M | train 10.4126 | val 10.4100 | ppl 33190.24 |    18s
+ple-cleandeploy-s0 step   250 | tok    1.0M | train 4.0961 | val 4.0209 | ppl   55.75 |   409s
+ple-cleandeploy-s0 step   500 | tok    2.1M | train 3.2375 | val 3.3304 | ppl   27.95 |   803s
+ple-cleandeploy-s0 step   750 | tok    3.1M | train 2.9184 | val 3.0867 | ppl   21.90 |  1213s
+ple-cleandeploy-s0 step  1000 | tok    4.1M | train 2.9726 | val 2.9491 | ppl   19.09 |  1639s
+ple-cleandeploy-s0 step  1250 | tok    5.1M | train 2.6778 | val 2.8473 | ppl   17.24 |  2033s
+ple-cleandeploy-s0 step  1500 | tok    6.1M | train 2.7562 | val 2.7829 | ppl   16.17 |  2455s
+ple-cleandeploy-s0 step  1750 | tok    7.2M | train 2.6224 | val 2.7198 | ppl   15.18 |  2865s
+ple-cleandeploy-s0 step  2000 | tok    8.2M | train 2.6086 | val 2.6730 | ppl   14.48 |  3258s
+ple-cleandeploy-s0 step  2250 | tok    9.2M | train 2.7044 | val 2.6355 | ppl   13.95 |  3656s
+ple-cleandeploy-s0 step  2500 | tok   10.2M | train 2.4864 | val 2.5987 | ppl   13.45 |  4044s
+ple-cleandeploy-s0 step  2750 | tok   11.3M | train 2.4377 | val 2.5671 | ppl   13.03 |  4420s
+ple-cleandeploy-s0 step  3000 | tok   12.3M | train 2.4215 | val 2.5405 | ppl   12.69 |  4801s
+ple-cleandeploy-s0 step  3250 | tok   13.3M | train 2.4293 | val 2.5132 | ppl   12.34 |  5231s
+ple-cleandeploy-s0 step  3500 | tok   14.3M | train 2.4552 | val 2.4963 | ppl   12.14 |  5648s
+ple-cleandeploy-s0 step  3750 | tok   15.4M | train 2.2065 | val 2.4799 | ppl   11.94 |  6056s
+ple-cleandeploy-s0 step  4000 | tok   16.4M | train 2.4723 | val 2.4652 | ppl   11.77 |  6477s
+ple-cleandeploy-s0 step  4250 | tok   17.4M | train 2.4039 | val 2.4524 | ppl   11.62 |  6867s
+ple-cleandeploy-s0 step  4500 | tok   18.4M | train 2.4112 | val 2.4429 | ppl   11.51 |  7245s
+ple-cleandeploy-s0 step  4750 | tok   19.5M | train 2.2730 | val 2.4376 | ppl   11.45 |  7621s
+ple-cleandeploy-s0 step  4999 | tok   20.5M | train 2.2815 | val 2.4311 | ppl   11.37 |  7998s
+ple-cleandeploy-s0 DONE core=558,368 table=25,165,824 val=2.4311 ppl=11.37

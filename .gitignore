@@ -24,3 +24,9 @@ videos/
 *.mov
 *.MOV
 *.MP4
+
+# build artifacts
+build/
+
+# generated firmware artifacts
+firmware/esp32_llm/bpe.h
