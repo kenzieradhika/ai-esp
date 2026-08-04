@@ -10,10 +10,11 @@ jobs:
     name: Build firmware (esp32s3)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install arduino-cli
         run: |
+          mkdir -p "$HOME/bin"
           curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | BINDIR=$HOME/bin sh
           echo "$HOME/bin" >> "$GITHUB_PATH"
 
@@ -38,8 +39,8 @@ jobs:
     name: Python syntax check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
       - name: Compile sources
