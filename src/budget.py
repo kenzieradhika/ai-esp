@@ -33,7 +33,7 @@ FLASH_BYTES = 15 * 1024 * 1024  # 16MB minus ~1MB firmware.
 FLASH_BW = 60e6  # bytes/sec, sequential
 
 
-def tiers(vocab, d_model, n_layers, ple_dim, ffn_hidden, n_heads=4):
+def tiers(vocab, d_model, n_layers, ple_dim, ffn_hidden):
     """Parameter counts per tier for the `ple` architecture."""
     per_layer = (
         4 * d_model * d_model  # attn qkv + out proj

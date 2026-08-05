@@ -15,7 +15,7 @@ def _cfg(arm):
 
 
 def test_stream_and_table_match_model():
-    t = tiers(VOCAB, D, L, P, F, n_heads=H)
+    t = tiers(VOCAB, D, L, P, F)
     b = TinyLM(_cfg("ple")).param_budget()
     assert t["stream"] == b["stream"]
     assert t["table"] == b["table"]
@@ -24,6 +24,6 @@ def test_stream_and_table_match_model():
 def test_core_close_to_model():
     # budget.py is an analytic estimate (it lumps qkv+proj as 4*d*d and omits
     # tied-weight nuances); assert same order, not exact equality.
-    t = tiers(VOCAB, D, L, P, F, n_heads=H)
+    t = tiers(VOCAB, D, L, P, F)
     b = TinyLM(_cfg("ple")).param_budget()
     assert abs(t["core"] - b["core"]) / b["core"] < 0.05
