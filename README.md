@@ -126,7 +126,7 @@ other by bare name, so run them from inside `src/`.
 
 ```bash
 uv sync --extra dev          # install deps + pytest
-uv run pytest -q             # 45 unit tests (model accounting, int4 quantizer, budget, tokenizer, schedule)
+uv run pytest -q             # unit tests (model accounting, int4 quantizer, budget, tokenizer, schedule)
 ```
 
 The C runtime is verified against a PyTorch golden before it ever touches
