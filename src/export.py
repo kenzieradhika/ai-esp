@@ -78,6 +78,12 @@ def main():
     os.makedirs(OUT, exist_ok=True)
     ck = torch.load(os.path.join(RUNS, f"{tag}.pt"), map_location="cpu", weights_only=False)
     cfg = Config(**ck["cfg"])
+    # The C runtime (llm.h) implements exactly the `ple` tensor set: a per-layer
+    # projection + lookup table, tied head, no bottom-only emb_down. Any other arm
+    # would either KeyError mid-plan (no ple_table) or silently drop a tensor
+    # (fatembed's emb_down), so reject before writing a golden nobody can match.
+    if cfg.arm != "ple":
+        raise SystemExit(f"export supports the 'ple' arm only, checkpoint is '{cfg.arm}'")
     model = TinyLM(cfg)
     model.load_state_dict(ck["state"])
     model.eval()
