@@ -374,6 +374,7 @@ static const char *mem_value(const char *key) {
 
 static int mem_store(const char *w, const char *m) {
   int i = mem_find(w);
+  int shifted = 0;
   if (i < 0) {
     if (mem_count >= MEM_MAX) {  // FIFO: drop the oldest entry
       for (int k = 0; k < MEM_MAX - 1; k++) {
@@ -381,6 +382,7 @@ static int mem_store(const char *w, const char *m) {
         strcpy(mem_m[k], mem_m[k + 1]);
       }
       i = MEM_MAX - 1;
+      shifted = 1;
     } else {
       i = mem_count++;
     }
@@ -389,8 +391,14 @@ static int mem_store(const char *w, const char *m) {
   strncpy(mem_w[i], w, MEM_WLEN - 1); mem_w[i][MEM_WLEN - 1] = 0;
   strncpy(mem_m[i], m, MEM_MLEN - 1); mem_m[i][MEM_MLEN - 1] = 0;
   mem.putInt("count", mem_count);
-  mem.putString((String("w") + i).c_str(), mem_w[i]);
-  mem.putString((String("m") + i).c_str(), mem_m[i]);
+  // On eviction every entry moved down one slot, so NVS must be rewritten in
+  // full; persisting only slot i would leave w0..w(MEM_MAX-2) stale, and the
+  // next boot would reload the dropped word and lose the shift.
+  int first = shifted ? 0 : i;
+  for (int k = first; k <= i; k++) {
+    mem.putString((String("w") + k).c_str(), mem_w[k]);
+    mem.putString((String("m") + k).c_str(), mem_m[k]);
+  }
   return i;
 }
 
