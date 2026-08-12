@@ -64,12 +64,19 @@ static int sample_token(const float *logits, int n) {
     float l = logits[v] / SAMP_TEMP;
     for (int h = 0; h < hist_len; h++)
       if (hist_tok[h] == v) { l /= SAMP_PENALTY; break; }
-    int j = m;  // insert into descending top-k
-    while (j > 0 && samp_logit[j - 1] < l) {
-      samp_logit[j] = samp_logit[j - 1]; samp_idx[j] = samp_idx[j - 1]; j--;
+    if (m < SAMP_TOP_K) {          // room left: plain sorted insert
+      int j = m;
+      while (j > 0 && samp_logit[j - 1] < l) {
+        samp_logit[j] = samp_logit[j - 1]; samp_idx[j] = samp_idx[j - 1]; j--;
+      }
+      samp_logit[j] = l; samp_idx[j] = v; m++;
+    } else if (l > samp_logit[SAMP_TOP_K - 1]) {  // full: replace the smallest
+      int j = SAMP_TOP_K - 1;
+      while (j > 0 && samp_logit[j - 1] < l) {
+        samp_logit[j] = samp_logit[j - 1]; samp_idx[j] = samp_idx[j - 1]; j--;
+      }
+      samp_logit[j] = l; samp_idx[j] = v;
     }
-    if (m < SAMP_TOP_K) { samp_logit[j] = l; samp_idx[j] = v; m++; }
-    else if (j < SAMP_TOP_K) { samp_logit[j] = l; samp_idx[j] = v; }
   }
   float mx = samp_logit[0], sum = 0;  // softmax over the top-k
   for (int i = 0; i < m; i++) { float e = expf(samp_logit[i] - mx); samp_logit[i] = e; sum += e; }
