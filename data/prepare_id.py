@@ -7,7 +7,7 @@ prompt the model with "user: ...\\nJawaban:" and let it continue.
 
 Emits (alongside the English TinyStories bins, suffix "_id"):
   bpe_id32768.json   BPE tokenizer trained on the Indonesian text
-  train_id_v32768.bin / val_id_v32768.bin  uint16 token bins
+  train_v32768_id.bin / val_v32768_id.bin  uint16 token bins
 """
 
 import os
