@@ -11,32 +11,14 @@ Usage:
 Press-and-hold BOOT, tap RST/EN, release BOOT while the script is waiting.
 """
 
-import glob
 import os
 import subprocess
 import sys
 import time
 
+from _flash_common import ESPTOOL, GEN_PART, latest_build
+
 HERE = os.path.dirname(os.path.abspath(__file__))
-
-APPDATA = os.environ.get("LOCALAPPDATA", "")
-ESPTOOL = os.path.join(
-    APPDATA, "Arduino15", "packages", "esp32", "tools", "esptool_py", "5.3.1", "esptool.exe"
-)
-GEN_PART = os.path.join(
-    APPDATA, "Arduino15", "packages", "esp32", "hardware", "esp32", "3.3.11",
-    "tools", "gen_esp32part.py",
-)
-
-
-def latest_build():
-    builds = sorted(glob.glob(os.path.join(APPDATA, "Temp", "arduino_build_*")),
-                    key=os.path.getmtime, reverse=True)
-    for b in builds:
-        app = os.path.join(b, "esp32_llm.ino.bin")
-        if os.path.exists(app):
-            return b
-    return None
 
 
 def main():
