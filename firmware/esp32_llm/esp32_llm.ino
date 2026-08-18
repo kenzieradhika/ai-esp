@@ -545,14 +545,18 @@ static int chat_reply(const char *line) {
   }
 
   // ---- teachable word memory: "<kata> artinya <makna>" ----
+  // str_ci_str returns the match START, so the meaning must skip the whole
+  // marker (e.g. " artinya "), not just one char -- otherwise it stores the
+  // literal "artinya louse" as the definition.
   const char *sep = str_ci_str(line, " artinya ");
-  if (!sep) sep = str_ci_str(line, " means ");
-  if (!sep) sep = str_ci_str(line, " adalah ");
-  if (!sep) sep = strchr(line, '=');
+  int seplen = 9;
+  if (!sep) { sep = str_ci_str(line, " means "); seplen = 7; }
+  if (!sep) { sep = str_ci_str(line, " adalah "); seplen = 8; }
+  if (!sep) { sep = strchr(line, '='); seplen = 1; }
   if (sep) {
     char w[MEM_WLEN], m[MEM_MLEN];
     int wl = trim_copy(line, (int)(sep - line), w, MEM_WLEN);
-    int ml = trim_copy(sep + 1, (int)strlen(sep + 1), m, MEM_MLEN);
+    int ml = trim_copy(sep + seplen, (int)strlen(sep + seplen), m, MEM_MLEN);
     if (wl >= 2 && ml > 0 && !memchr(w, ' ', wl) && !is_stopword(w)) {
       mem_store(w, m);
       char rep[192];
