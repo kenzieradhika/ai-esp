@@ -445,11 +445,25 @@ static int trim_copy(const char *s, int len, char *out, int outsz) {
   return len;
 }
 
+// Case-insensitive whole-string equality. `str_ci` is a substring test, which is
+// right for matching keywords in a line but wrong for a stopword list: it would
+// reject any word that merely CONTAINS a stopword ("kapal" contains "apa").
+static int str_ci_eq(const char *a, const char *b) {
+  while (*a && *b) {
+    char ca = *a, cb = *b;
+    if (ca >= 'A' && ca <= 'Z') ca += 32;
+    if (cb >= 'A' && cb <= 'Z') cb += 32;
+    if (ca != cb) return 0;
+    a++; b++;
+  }
+  return *a == 0 && *b == 0;
+}
+
 static int is_stopword(const char *w) {
   static const char *SW[] = { "apa", "apakah", "what", "itu", "ini", "yang",
                               "adalah", "kata", "artinya", "means" };
   for (int i = 0; i < (int)(sizeof(SW) / sizeof(SW[0])); i++)
-    if (str_ci(w, SW[i])) return 1;
+    if (str_ci_eq(w, SW[i])) return 1;
   return 0;
 }
 
