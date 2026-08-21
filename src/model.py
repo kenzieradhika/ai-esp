@@ -44,6 +44,13 @@ class Config:
     rope_theta: float = 10000.0
 
     def __post_init__(self):
+        # These come straight from CLI args, so reject nonsense here rather than
+        # letting a negative/zero dim surface later as a ZeroDivisionError in the
+        # head_dim property or a silently empty model.
+        for name in ("vocab_size", "d_model", "n_layers", "n_heads", "ffn_hidden",
+                     "seq_len", "ple_dim"):
+            if getattr(self, name) <= 0:
+                raise ValueError(f"{name} must be positive, got {getattr(self, name)}")
         if self.d_model % self.n_heads:
             raise ValueError(f"d_model ({self.d_model}) must be divisible by n_heads ({self.n_heads})")
         if self.head_dim % 2:

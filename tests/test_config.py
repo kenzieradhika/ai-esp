@@ -47,6 +47,16 @@ def test_config_rejects_odd_head_dim():
     with pytest.raises(ValueError):
         Config(d_model=96, n_heads=32)
 
+@pytest.mark.parametrize("bad", [
+    dict(n_heads=0), dict(n_heads=-2), dict(d_model=0), dict(n_layers=0),
+    dict(vocab_size=0), dict(seq_len=-1), dict(ple_dim=0), dict(ffn_hidden=0),
+])
+def test_config_rejects_non_positive_dims(bad):
+    # Every dim comes from a CLI flag; a zero/negative value must raise a clear
+    # ValueError, not a ZeroDivisionError from the head_dim property later.
+    with pytest.raises(ValueError):
+        Config(**bad)
+
 
 def test_bigcore_arm_has_no_table_params():
     c = Config(arm="bigcore", vocab_size=256, d_model=32, n_layers=2,
