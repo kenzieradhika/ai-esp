@@ -42,6 +42,7 @@ static float *samp_logit;    // PSRAM: top-k logits
 #define MEM_WLEN 40
 #define MEM_MLEN 160
 static Preferences mem;
+static int mem_ok;      // NVS namespace opened; writes are no-ops otherwise
 static int mem_count;
 static char mem_w[MEM_MAX][MEM_WLEN];
 static char mem_m[MEM_MAX][MEM_MLEN];
@@ -352,7 +353,8 @@ static void chat_say(const char *s) {
 static void mem_begin() {
   memset(mem_w, 0, sizeof(mem_w));
   memset(mem_m, 0, sizeof(mem_m));
-  if (!mem.begin("chatmem", false)) { mem_count = 0; return; }
+  mem_ok = mem.begin("chatmem", false);
+  if (!mem_ok) { mem_count = 0; return; }
   mem_count = mem.getInt("count", 0);
   if (mem_count < 0) mem_count = 0;
   if (mem_count > MEM_MAX) mem_count = MEM_MAX;
@@ -397,6 +399,7 @@ static int mem_store(const char *w, const char *m) {
   }
   strncpy(mem_w[i], w, MEM_WLEN - 1); mem_w[i][MEM_WLEN - 1] = 0;
   strncpy(mem_m[i], m, MEM_MLEN - 1); mem_m[i][MEM_MLEN - 1] = 0;
+  if (!mem_ok) return i;  // NVS namespace failed to open; keep it RAM-only
   mem.putInt("count", mem_count);
   // On eviction every entry moved down one slot, so NVS must be rewritten in
   // full; persisting only slot i would leave w0..w(MEM_MAX-2) stale, and the
