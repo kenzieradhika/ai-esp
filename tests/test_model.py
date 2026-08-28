@@ -86,6 +86,23 @@ def test_rope_is_rotation_preserving():
     assert torch.allclose(x.norm(dim=-1), y.norm(dim=-1), atol=1e-5)
 
 
+def test_generate_top_k_zero_disables_the_cut():
+    # sample.py --top-k 0 means "no cut"; generate must not call topk(0).
+    torch.manual_seed(0)
+    m = TinyLM(cfg("ple")).eval()
+    ids = torch.randint(0, SMALL["vocab_size"], (1, 4))
+    out = m.generate(ids, 3, temperature=0.8, top_k=0)
+    assert out.shape == (1, 7)
+
+
+def test_generate_temperature_zero_is_greedy():
+    torch.manual_seed(0)
+    m = TinyLM(cfg("ple")).eval()
+    ids = torch.randint(0, SMALL["vocab_size"], (1, 4))
+    out = m.generate(ids, 3, temperature=0.0)
+    assert out.shape == (1, 7)
+
+
 def test_load_checkpoint_roundtrips(tmp_path):
     # The checkpoint format every consumer reads: {"cfg", "state"} -> eval model
     # with identical weights. A shape/name drift here silently loads garbage.
