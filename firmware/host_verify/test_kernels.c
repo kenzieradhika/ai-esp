@@ -72,6 +72,38 @@ static void test_ragged_odd_cols(void) {
         "ragged deq = %g %g %g", row[0], row[1], row[2]);
 }
 
+// A group size that lands on an odd column boundary: deq_row's per-group loop
+// has a separate branch for a group starting at an odd index, which a group
+// aligned to the row start never reaches.
+static void test_multi_group_odd_boundary(void) {
+  const int cols = 6, group = 3;      // two groups; group 1 starts at odd col 3
+  int8_t vals[6] = {1, 2, 3, -1, -2, -3};
+  uint8_t codes[3];
+  for (int i = 0; i < 6; i += 2) {
+    uint8_t lo = (uint8_t)(vals[i] + 8) & 0xF;
+    uint8_t hi = (uint8_t)(vals[i + 1] + 8) & 0xF;
+    codes[i >> 1] = (uint8_t)(lo | (hi << 4));
+  }
+  uint16_t scales[2] = {0x3C00, 0x4000};  // group 0 scale 1.0, group 1 scale 2.0
+  QT t = {codes, scales, 1, cols, group, 2, 3};
+
+  float row[6];
+  deq_row(&t, 0, row);
+  for (int i = 0; i < 3; i++)
+    CHECK(row[i] == (float)vals[i], "group0 deq[%d]=%g want %d", i, row[i], vals[i]);
+  for (int i = 3; i < 6; i++)
+    CHECK(row[i] == (float)vals[i] * 2.0f,
+          "group1 deq[%d]=%g want %d", i, row[i], vals[i] * 2);
+
+  // matvec must apply the same per-group scale.
+  float x[6] = {1, 1, 1, 1, 1, 1};
+  float y[1];
+  matvec_q(&t, x, y);
+  float want = (float)(vals[0] + vals[1] + vals[2])
+             + 2.0f * (float)(vals[3] + vals[4] + vals[5]);
+  CHECK(fabsf(y[0] - want) < 1e-5f, "multi-group matvec=%g want %g", y[0], want);
+}
+
 // A ranged matvec (what the dual-core head splits on) must equal the full one.
 static void test_matvec_range_matches_full(void) {
   const int rows = 6, cols = 8;
@@ -190,6 +222,7 @@ int main(void) {
   test_half2float();
   test_deq_and_matvec();
   test_ragged_odd_cols();
+  test_multi_group_odd_boundary();
   test_matvec_range_matches_full();
   test_norm_activations();
   test_quantize_act();
