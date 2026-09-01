@@ -23,6 +23,15 @@ static void test_half2float(void) {
   CHECK(half2float(0x3800) == 0.5f, "0x3800 -> %g", half2float(0x3800));
   CHECK(half2float(0x7C00) == INFINITY, "0x7C00 -> %g", half2float(0x7C00));
   CHECK(half2float(0x8000) == 0.0f, "0x8000 -> -0 (==0)");
+  // Subnormals: 0x0001 is the smallest half (2^-24); the exponent-0 branch must
+  // renormalize it rather than flushing to zero.
+  CHECK(half2float(0x0001) == 5.9604645e-8f, "0x0001 -> %g", half2float(0x0001));
+  CHECK(half2float(0x03FF) == 6.0975552e-5f, "0x03FF -> %g", half2float(0x03FF));
+  // Largest finite half and a negative value round-trip.
+  CHECK(half2float(0x7BFF) == 65504.0f, "0x7BFF -> %g", half2float(0x7BFF));
+  CHECK(half2float(0xBC00) == -1.0f, "0xBC00 -> %g", half2float(0xBC00));
+  // NaN must stay NaN (exp all ones, nonzero mantissa).
+  CHECK(isnan(half2float(0x7E00)), "0x7E00 should be NaN");
 }
 
 // Build a one-row, one-group int4 tensor with codes v[0..cols-1] in [-8,7] and
