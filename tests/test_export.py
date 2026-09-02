@@ -33,3 +33,15 @@ def test_export_rejects_non_ple_arm(tmp_path, monkeypatch, arm):
         export.main()
     # Nothing written: the guard fires before the binary/golden are opened.
     assert not (tmp_path / "out" / "model.bin").exists()
+
+
+def test_export_rejects_prompt_ids_past_the_vocab(tmp_path, monkeypatch):
+    # The golden prompt is a fixed id list; a checkpoint whose vocab is smaller
+    # than the largest id would index the embedding out of range. Fail loudly.
+    _checkpoint(tmp_path, "ple")
+    monkeypatch.setattr(export, "RUNS", str(tmp_path))
+    monkeypatch.setattr(export, "OUT", str(tmp_path / "out"))
+    monkeypatch.setattr(sys, "argv", ["export.py", "run"])
+    with pytest.raises(SystemExit, match="vocab_size"):
+        export.main()
+    assert not (tmp_path / "out" / "model.bin").exists()

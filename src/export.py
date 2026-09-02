@@ -84,6 +84,16 @@ def main():
     # (fatembed's emb_down), so reject before writing a golden nobody can match.
     if cfg.arm != "ple":
         raise SystemExit(f"export supports the 'ple' arm only, checkpoint is '{cfg.arm}'")
+    # The golden prompt is a fixed id list. Validate it against this checkpoint's
+    # vocab before writing anything: a larger id would index the embedding out of
+    # range and torch would error (or silently wrap) after the binary is already
+    # on disk.
+    prompt = [1, 500, 1000, 200, 42, 777, 13, 99]  # arbitrary fixed token ids
+    bad = [t for t in prompt if not 0 <= t < cfg.vocab_size]
+    if bad:
+        raise SystemExit(
+            f"golden prompt ids {bad} exceed vocab_size {cfg.vocab_size}; "
+            "edit the fixed prompt for this checkpoint")
     model = TinyLM(cfg)
     model.load_state_dict(ck["state"])
     model.eval()
