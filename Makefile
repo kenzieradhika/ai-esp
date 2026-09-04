@@ -18,6 +18,8 @@ lint:
 
 verify:
 	cc -O3 -Wall -Wextra -Werror -o /tmp/esp-verify firmware/host_verify/verify.c -lm
+	cc -O3 -Wall -Wextra -Werror -o /tmp/esp-ppl-fp32 firmware/host_verify/ppl.c -lm
+	cc -O3 -Wall -Wextra -Werror -DLLM_INT8_ACT -o /tmp/esp-ppl-int8 firmware/host_verify/ppl.c -lm
 	cc -O3 -Wall -Wextra -Werror -DLLM_INT8_ACT -o /tmp/esp-kernels firmware/host_verify/test_kernels.c -lm
 	/tmp/esp-kernels
 
@@ -29,4 +31,4 @@ build:
 
 clean:
 	find . -name __pycache__ -type d -prune -exec rm -rf {} +
-	rm -f /tmp/esp-verify /tmp/esp-kernels
+	rm -f /tmp/esp-verify /tmp/esp-kernels /tmp/esp-ppl-fp32 /tmp/esp-ppl-int8
