@@ -9,7 +9,11 @@ static uint8_t *read_file(const char *path, size_t *n) {
   FILE *f = fopen(path, "rb");
   if (!f) { perror(path); exit(1); }
   fseek(f, 0, SEEK_END); *n = ftell(f); fseek(f, 0, SEEK_SET);
+  // malloc(0) may return NULL, and the caller then memcpy's the model header out
+  // of it. Treat an empty file as the error it is.
+  if (*n == 0) { fprintf(stderr, "%s is empty\n", path); exit(1); }
   uint8_t *b = malloc(*n);
+  if (!b) { fprintf(stderr, "out of memory reading %s\n", path); exit(1); }
   if (fread(b, 1, *n, f) != *n) { fprintf(stderr, "short read\n"); exit(1); }
   fclose(f); return b;
 }
