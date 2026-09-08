@@ -12,7 +12,9 @@ static uint8_t *read_file(const char *path, size_t *n) {
   FILE *f = fopen(path, "rb");
   if (!f) { perror(path); exit(1); }
   fseek(f, 0, SEEK_END); *n = ftell(f); fseek(f, 0, SEEK_SET);
+  if (*n == 0) { fprintf(stderr, "%s is empty\n", path); exit(1); }
   uint8_t *b = malloc(*n);
+  if (!b) { fprintf(stderr, "out of memory reading %s\n", path); exit(1); }
   if (fread(b, 1, *n, f) != *n) { fprintf(stderr, "short read\n"); exit(1); }
   fclose(f); return b;
 }
@@ -42,8 +44,21 @@ int main(int argc, char **argv) {
     if (base + S + 1 > n_tok) break;
     for (int pos = 0; pos < S; pos++) {
       int tok = val[base + pos];
+      // A val bin from a different vocabulary (e.g. the 4096-token TinyStories
+      // bins against the 32768-token model) would index the embedding out of
+      // range. Stop with a clear message instead of reading past the tensor.
+      if (tok >= V) {
+        fprintf(stderr, "token %d at %zu exceeds vocab %d: wrong val bin for this model\n",
+                tok, base + pos, V);
+        return 1;
+      }
       llm_forward(&m, tok, pos, &s);
       int target = val[base + pos + 1];
+      if (target >= V) {
+        fprintf(stderr, "target %d at %zu exceeds vocab %d: wrong val bin for this model\n",
+                target, base + pos + 1, V);
+        return 1;
+      }
       // cross-entropy at this position
       float mx = -1e30f;
       for (int v = 0; v < V; v++) if (s.logits[v] > mx) mx = s.logits[v];
