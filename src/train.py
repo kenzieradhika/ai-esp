@@ -82,6 +82,13 @@ def main():
                          "(train_v{VOCAB}{suffix}.bin)")
     args = ap.parse_args()
 
+    # `step % args.eval_every` runs every step, so 0 is a ZeroDivisionError on the
+    # first one; `sum(losses)/len(losses)` in evaluate() is the same for 0 iters.
+    if args.eval_every < 1:
+        ap.error("--eval-every must be >= 1")
+    if args.eval_iters < 1:
+        ap.error("--eval-iters must be >= 1")
+
     torch.manual_seed(args.seed)
     device = get_device()
     os.makedirs(RUNS, exist_ok=True)
