@@ -29,6 +29,13 @@ class Batcher:
         self.data = np.memmap(os.path.join(DATA, f"{split}{suffix}.bin"), dtype=np.uint16, mode="r")
         self.bs, self.sl, self.device = batch_size, seq_len, device
         self.rng = np.random.default_rng(1234 if split == "val" else None)
+        # __call__ draws offsets in [0, len - sl - 1); a bin shorter than seq_len+1
+        # makes that range empty and numpy raises a bare "low >= high". Say what
+        # is actually wrong (usually a missing or wrong --data-suffix bin).
+        if len(self.data) < seq_len + 1:
+            raise ValueError(
+                f"{split}{suffix}.bin has {len(self.data)} tokens, need > seq_len ({seq_len})"
+            )
 
     def __call__(self):
         ix = self.rng.integers(0, len(self.data) - self.sl - 1, self.bs)

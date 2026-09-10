@@ -49,6 +49,20 @@ def test_batcher_shapes_and_alignment(tmp_path, monkeypatch):
     assert torch.equal(y[:, :-1], x[:, 1:])  # y is x shifted one to the right
 
 
+def test_batcher_rejects_a_bin_shorter_than_seq_len(tmp_path, monkeypatch):
+    # A too-short bin (wrong suffix, or a truncated download) makes the offset
+    # draw empty; raise a message naming the bin instead of numpy's "low >= high".
+    import numpy as np
+    import pytest
+
+    import train
+
+    np.arange(4, dtype=np.uint16).tofile(tmp_path / "train.bin")
+    monkeypatch.setattr(train, "DATA", str(tmp_path))
+    with pytest.raises(ValueError, match="train.bin"):
+        train.Batcher("train", batch_size=4, seq_len=8, device="cpu")
+
+
 def test_val_batcher_is_deterministic(tmp_path, monkeypatch):
     # The val batcher seeds with a fixed rng so every arm is scored on identical
     # batches; two fresh val batchers must produce the same draw.
