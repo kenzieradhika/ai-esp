@@ -111,7 +111,11 @@ def main():
     dtype = np.uint16 if VOCAB_SIZE <= 65536 else np.uint32
     arr = np.array(ids, dtype=dtype)
     assert arr.max() < VOCAB_SIZE
-    n_val = int(len(arr) * VAL_FRACTION)
+    # `arr[:-n_val]` is EMPTY when n_val is 0 (and `arr[-0:]` is the whole array),
+    # so a tiny corpus would put every token in val and train on nothing. Keep at
+    # least one val token; leave at least one for train.
+    assert len(arr) >= 2, f"corpus is {len(arr)} tokens; need at least 2 to split"
+    n_val = min(max(1, int(len(arr) * VAL_FRACTION)), len(arr) - 1)
     arr[:-n_val].tofile(os.path.join(HERE, f"train_v{VOCAB_SIZE}_id.bin"))
     arr[-n_val:].tofile(os.path.join(HERE, f"val_v{VOCAB_SIZE}_id.bin"))
     print(f"train {len(arr) - n_val:,} tokens / val {n_val:,} tokens")
