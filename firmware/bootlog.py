@@ -1,32 +1,17 @@
 """Pulse EN via RTS and capture the boot log. Tells us the chip's state.
 
 Usage:
-    python firmware/bootlog.py [COM port] [hold_seconds]
+    python firmware/bootlog.py [COM port]
 """
 
 import sys
-import time
 
-import serial
+from _flash_common import pulse_en_and_read
 
 
 def main():
     port = sys.argv[1] if len(sys.argv) > 1 else "COM6"
-    ser = serial.Serial(port, 115200, timeout=0.2)
-    ser.setDTR(False)
-    ser.setRTS(True)   # reset asserted
-    time.sleep(0.25)
-    ser.setRTS(False)  # release -> boot
-
-    log = b""
-    deadline = time.time() + 6
-    while time.time() < deadline:
-        chunk = ser.read(4096)
-        if chunk:
-            log += chunk
-            deadline = time.time() + 1.0
-
-    ser.close()
+    log = pulse_en_and_read(port)
     text = log.decode("utf-8", "replace")
     print("--- boot log ---")
     print(text or "(kosong)")

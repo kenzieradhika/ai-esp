@@ -11,7 +11,7 @@ Usage:
 import sys
 import time
 
-import serial
+from _flash_common import pulse_en_and_read
 
 
 def main():
@@ -20,21 +20,7 @@ def main():
     print(">>> TAHAN tombol BOOT sekarang, jangan lepas sampai saya bilang <<<")
     time.sleep(3)
 
-    ser = serial.Serial(port, 115200, timeout=0.2)
-    ser.setDTR(False)
-    ser.setRTS(True)   # EN low -> chip in reset
-    time.sleep(0.3)
-    ser.setRTS(False)  # release EN -> boot with GPIO0 low (BOOT held), GPIO46 low (jumper)
-
-    log = b""
-    deadline = time.time() + 8
-    while time.time() < deadline:
-        chunk = ser.read(4096)
-        if chunk:
-            log += chunk
-            deadline = time.time() + 1.5
-
-    ser.close()
+    log = pulse_en_and_read(port, settle_s=0.3, idle_s=1.5, max_s=8.0)
     text = log.decode("utf-8", "replace")
     print("--- boot log ---")
     print(text or "(kosong)")
