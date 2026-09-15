@@ -103,23 +103,34 @@ static int math_like(const char *line) {
   return 1;
 }
 
+// Reads a decimal run into `*v`, refusing once it passes `cap`. The cap has to
+// be enforced *inside* the loop: accumulating a 20-digit run into a long long
+// overflows first (signed overflow is UB), so a check after the loop is too late.
+static int parse_num(const char **q, long long cap, long long *v) {
+  long long n = 0;
+  if (**q < '0' || **q > '9') return 0;
+  while (**q >= '0' && **q <= '9') {
+    n = n * 10 + (**q - '0');
+    if (n > cap) return 0;
+    (*q)++;
+  }
+  *v = n;
+  return 1;
+}
+
 static int try_math(const char *line, long long *out) {
   if (!math_like(line)) return 0;
   for (const char *p = line; *p; p++) {
     if (*p >= '0' && *p <= '9') {
       const char *q = p;
-      long long a = 0;
-      while (*q >= '0' && *q <= '9') { a = a * 10 + (*q - '0'); q++; }
-      if (a > 100000000LL) return 0;
+      long long a, b;
+      if (!parse_num(&q, 100000000LL, &a)) return 0;
       char op = *q;
       if (op == 'x' || op == 'X') op = '*';
       if (op != '+' && op != '-' && op != '*' && op != '/') return 0;
       q++;
       while (*q == ' ') q++;
-      if (*q < '0' || *q > '9') return 0;
-      long long b = 0;
-      while (*q >= '0' && *q <= '9') { b = b * 10 + (*q - '0'); q++; }
-      if (b > 100000000LL) return 0;
+      if (!parse_num(&q, 100000000LL, &b)) return 0;
       switch (op) {
         case '+': *out = a + b; break;
         case '-': *out = a - b; break;
