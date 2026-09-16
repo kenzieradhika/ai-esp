@@ -125,11 +125,12 @@ static int try_math(const char *line, long long *out) {
       const char *q = p;
       long long a, b;
       if (!parse_num(&q, 100000000LL, &a)) return 0;
+      while (*q == ' ' || *q == '\t') q++;
       char op = *q;
       if (op == 'x' || op == 'X') op = '*';
       if (op != '+' && op != '-' && op != '*' && op != '/') return 0;
       q++;
-      while (*q == ' ') q++;
+      while (*q == ' ' || *q == '\t') q++;
       if (!parse_num(&q, 100000000LL, &b)) return 0;
       switch (op) {
         case '+': *out = a + b; break;
