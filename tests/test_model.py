@@ -95,6 +95,15 @@ def test_generate_top_k_zero_disables_the_cut():
     assert out.shape == (1, 7)
 
 
+def test_generate_negative_top_k_is_treated_as_no_cut():
+    # A negative --top-k is truthy; without the > 0 guard, torch.topk(k<0) raises.
+    torch.manual_seed(0)
+    m = TinyLM(cfg("ple")).eval()
+    ids = torch.randint(0, SMALL["vocab_size"], (1, 4))
+    out = m.generate(ids, 3, temperature=0.8, top_k=-5)
+    assert out.shape == (1, 7)
+
+
 def test_generate_temperature_zero_is_greedy():
     torch.manual_seed(0)
     m = TinyLM(cfg("ple")).eval()

@@ -277,7 +277,7 @@ class TinyLM(nn.Module):
                 idx = torch.cat([idx, logits.argmax(dim=-1, keepdim=True)], dim=1)
                 continue
             logits = logits / temperature
-            if top_k:
+            if top_k and top_k > 0:
                 v, _ = torch.topk(logits, min(top_k, logits.size(-1)))
                 logits[logits < v[:, [-1]]] = -float("inf")
             probs = F.softmax(logits, dim=-1)
