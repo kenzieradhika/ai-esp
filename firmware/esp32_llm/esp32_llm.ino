@@ -243,6 +243,13 @@ static void *ps(size_t n) {
 // Unpack the (row-capped) head from int4 to int8 in PSRAM, once at boot.
 static void stage_head_int8(QT *t) {
   head_rows = t->rows; head_cols = t->cols;
+  // One fp16 scale per row is only correct while the whole row fits in a single
+  // quant group. A smaller group would need n_groups scales per row; using only
+  // the first would silently dequantize the tail of every row wrong.
+  if (t->n_groups != 1) {
+    Serial.printf("head needs n_groups==1 for int8 staging, got %d\n", t->n_groups);
+    while (1) delay(1000);
+  }
   head_w8 = (int8_t *)ps((size_t)head_rows * head_cols);
   head_scale8 = (float *)ps((size_t)head_rows * sizeof(float));
   for (int r = 0; r < head_rows; r++) {
