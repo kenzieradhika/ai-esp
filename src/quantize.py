@@ -128,7 +128,11 @@ def main():
         q_gap = rows["baseline"][1] - rows["ple"][1]
         print(f"  PLE vs baseline, fp32   : {fp_gap:+.4f} nats")
         print(f"  PLE vs baseline, {args.bits}-bit  : {q_gap:+.4f} nats")
-        print(f"  edge retained           : {100*q_gap/fp_gap:.0f}%")
+        if fp_gap == 0:
+            # No fp32 edge to retain; the ratio is undefined, not "0%".
+            print("  edge retained           : n/a (fp32 edge is zero)")
+        else:
+            print(f"  edge retained           : {100*q_gap/fp_gap:.0f}%")
 
 
 if __name__ == "__main__":
