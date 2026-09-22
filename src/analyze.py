@@ -26,7 +26,13 @@ def load():
     for path in sorted(glob.glob(os.path.join(RUNS, "*.json"))):
         with open(path) as f:
             r = json.load(f)
-        by_arm[r["arm"]].append(r)
+        try:
+            by_arm[r["arm"]].append(r)
+        except KeyError:
+            # A killed training run leaves a JSON with no "arm" (or an old schema
+            # without "final_val"). Name the file: the bare KeyError gives no clue
+            # which of dozens of runs is broken.
+            raise KeyError(f"{path} has no 'arm' key (incomplete run?)") from None
     return by_arm
 
 
