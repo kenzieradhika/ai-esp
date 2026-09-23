@@ -755,8 +755,14 @@ static void run_generation() {
   int64_t total_us = esp_timer_get_time() - t_start;
 
   Serial.printf("\n\n--- %d tokens in %.2f s ---\n", decoded, total_us / 1e6);
-  Serial.printf("throughput: %.2f tok/s   (%.1f ms/token)\n",
-                decoded * 1e6 / total_us, decode_us / 1000.0 / decoded);
+  if (decoded == 0) {
+    // No token was generated (e.g. the prompt already filled seq_len), so the
+    // per-token rates below would divide by zero and print inf/nan.
+    Serial.println("throughput: n/a (no tokens generated)");
+  } else {
+    Serial.printf("throughput: %.2f tok/s   (%.1f ms/token)\n",
+                  decoded * 1e6 / total_us, decode_us / 1000.0 / decoded);
+  }
   if (s.profile.calls) {
     float n = (float)s.profile.calls * 1000.f;
     Serial.printf("profile ms/token: input %.1f | attn %.1f | ffn %.1f | ple %.1f | head %.1f\n",
@@ -766,7 +772,7 @@ static void run_generation() {
   }
 #if USE_DISPLAY
   // Closing card: compute-only tok/s (the model's own speed) + ms/token.
-  display_stats(decoded * 1e6f / decode_us, decode_us / 1000.0f / decoded);
+  if (decoded) display_stats(decoded * 1e6f / decode_us, decode_us / 1000.0f / decoded);
 #endif
   blink(0);
   delay(500);
