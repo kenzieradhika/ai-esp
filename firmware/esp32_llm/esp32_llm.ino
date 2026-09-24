@@ -250,6 +250,13 @@ static void stage_head_int8(QT *t) {
     Serial.printf("head needs n_groups==1 for int8 staging, got %d\n", t->n_groups);
     while (1) delay(1000);
   }
+  // head_actq is a fixed 128-byte scratch; the head's input width is D. llm_load
+  // only bounds D by LLM_ACT_BUF (1024), so a wider model would overrun it.
+  if (head_cols > (int)sizeof(head_actq)) {
+    Serial.printf("head cols %d exceeds head_actq (%u)\n",
+                  head_cols, (unsigned)sizeof(head_actq));
+    while (1) delay(1000);
+  }
   head_w8 = (int8_t *)ps((size_t)head_rows * head_cols);
   head_scale8 = (float *)ps((size_t)head_rows * sizeof(float));
   for (int r = 0; r < head_rows; r++) {
