@@ -98,9 +98,12 @@ model besar hampir tanpa biaya, karena sebagian besarnya tidak pernah dimuat.
 ## Struktur Repo
 
 - `firmware/esp32_llm/` — sketsa Arduino untuk ESP32-S3 (chat, memori, OLED)
+- `firmware/common/llm.h` — inference portabel; sama persis di host dan di chip
+- `firmware/host_verify/` — verifier C: golden PyTorch, perplexity, unit test kernel
 - `firmware/prompt_ui.py` — antarmuka chat serial untuk Windows
 - `data/prepare_id.py` — pipeline dataset chat Indonesia + tokenizer BPE 32768
 - `src/` — training, kuantisasi, ekspor model, generate aset firmware
+- `tests/` — unit test pytest untuk sisi Python
 - `experiments/` — skrip eksperimen (ablation, sweep)
 - `RESULTS.md` — semua hasil terukur: baseline, ablasi, kuantisasi 4-bit, dan hasil model chat Indonesia
 
