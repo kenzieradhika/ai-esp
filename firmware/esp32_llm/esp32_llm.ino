@@ -660,10 +660,13 @@ static void run_generation() {
   int got_line = 0;
   Serial.print("prompt> ");
   while (!got_line) {
-    while (!got_line && Serial.available() && n_line < (int)sizeof(line) - 1) {
+    while (!got_line && Serial.available()) {
       int c = Serial.read();
-      if (c == '\n' || c == '\r') { got_line = 1; }
-      else line[n_line++] = (char)c;
+      if (c == '\n' || c == '\r') { got_line = 1; break; }
+      // Once the buffer is full keep draining the line instead of stalling:
+      // without this the outer loop spins forever, because n_line can no longer
+      // grow so the terminator is never seen.
+      if (n_line < (int)sizeof(line) - 1) line[n_line++] = (char)c;
     }
     delay(10);
   }
