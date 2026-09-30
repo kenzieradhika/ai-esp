@@ -89,6 +89,9 @@ def main():
                          "(train_v{VOCAB}{suffix}.bin)")
     args = ap.parse_args()
 
+    # `--steps 0` leaves `history` empty and the result dict indexes history[-1].
+    if args.steps < 1:
+        ap.error("--steps must be >= 1")
     # `step % args.eval_every` runs every step, so 0 is a ZeroDivisionError on the
     # first one; `sum(losses)/len(losses)` in evaluate() is the same for 0 iters.
     if args.eval_every < 1:
