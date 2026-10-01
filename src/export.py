@@ -28,6 +28,10 @@ RUNS = os.path.join(HERE, "..", "runs")
 OUT = os.path.join(HERE, "..", "firmware", "model")
 MAGIC = 0x504C4531  # "PLE1"
 GROUP = 128  # uniform; fp16 scales + ragged packing keep the 28.9M model < 16MB
+# Fixed golden prompt. One constant, validated against the checkpoint vocab before
+# the binary is written and reused for the golden forward -- a second literal at
+# the bottom could silently drift from the validated one.
+GOLDEN_PROMPT = [1, 500, 1000, 200, 42, 777, 13, 99]
 
 
 def quant_pack(w, group=GROUP):
@@ -88,7 +92,7 @@ def main():
     # vocab before writing anything: a larger id would index the embedding out of
     # range and torch would error (or silently wrap) after the binary is already
     # on disk.
-    prompt = [1, 500, 1000, 200, 42, 777, 13, 99]  # arbitrary fixed token ids
+    prompt = GOLDEN_PROMPT
     bad = [t for t in prompt if not 0 <= t < cfg.vocab_size]
     if bad:
         raise SystemExit(
@@ -165,7 +169,6 @@ def main():
     gold = TinyLM(cfg)
     gold.load_state_dict(dq_sd)
     gold.eval()
-    prompt = [1, 500, 1000, 200, 42, 777, 13, 99]  # arbitrary fixed token ids
     ids = torch.tensor([prompt])
     with torch.no_grad():
         logits, _ = gold(ids)
