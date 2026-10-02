@@ -77,7 +77,12 @@ def val_loss(model, vocab, device, iters=60, bs=16, sl=256, seed=1234, suffix=""
     # vocab picks the base bin name; suffix adds the domain tag, e.g. "_id" for
     # the Indonesian chat bins (val_v32768_id.bin), matching train.py's naming.
     suffix = ("" if vocab == 4096 else f"_v{vocab}") + suffix
-    data = np.memmap(os.path.join(DATA, f"val{suffix}.bin"), dtype=np.uint16, mode="r")
+    path = os.path.join(DATA, f"val{suffix}.bin")
+    data = np.memmap(path, dtype=np.uint16, mode="r")
+    # rng.integers(0, len-sl-1) needs a positive high bound; a truncated or
+    # wrong-suffix val bin otherwise dies in numpy with "low >= high".
+    if len(data) <= sl + 1:
+        raise ValueError(f"{os.path.basename(path)} has {len(data)} tokens, need > {sl + 1}")
     rng = np.random.default_rng(seed)
     losses = []
     for _ in range(iters):

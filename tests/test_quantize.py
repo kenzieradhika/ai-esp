@@ -56,6 +56,20 @@ def test_quant_pack_error_is_bounded_by_group_scale():
     assert (w - dq).abs().max() <= (step / 2).max() + 1e-4
 
 
+def test_val_loss_names_a_too_short_val_bin(tmp_path, monkeypatch):
+    # rng.integers(0, len-sl-1) needs a positive bound; a truncated val bin
+    # otherwise dies in numpy with an opaque "low >= high".
+    import numpy as np
+    import pytest
+
+    import quantize
+
+    np.arange(8, dtype=np.uint16).tofile(tmp_path / "val.bin")
+    monkeypatch.setattr(quantize, "DATA", str(tmp_path))
+    with pytest.raises(ValueError, match="val.bin"):
+        quantize.val_loss(None, 4096, "cpu", iters=1, bs=1, sl=16)
+
+
 def test_simulator_and_exporter_agree():
     # Same math, two implementations: the group-64 simulator and the group-64
     # exporter must reconstruct the same weights (fp16 scales differ by design in
