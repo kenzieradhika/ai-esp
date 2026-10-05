@@ -21,10 +21,13 @@ def main():
     ap.add_argument("--top-k", type=int, default=40,
                     help="keep only the top-k logits per step; 0 disables the cut")
     ap.add_argument("--samples", type=int, default=3)
+    ap.add_argument("--seed", type=int, default=0,
+                    help="RNG seed, so a sampling run is reproducible")
     ap.add_argument("--tok", default=os.path.join(HERE, "..", "data", "bpe_id32768.json"),
                     help="path to the BPE tokenizer json matching the checkpoint")
     args = ap.parse_args()
 
+    torch.manual_seed(args.seed)
     device = get_device()
     model = load_checkpoint(args.run, device)
 
