@@ -112,6 +112,15 @@ def test_generate_temperature_zero_is_greedy():
     assert out.shape == (1, 7)
 
 
+def test_load_checkpoint_names_a_missing_key(tmp_path):
+    # A truncated or foreign .pt gives a bare KeyError('cfg'); the message must
+    # point at the file so the user knows which checkpoint is broken.
+    path = tmp_path / "run.pt"
+    torch.save({"state": {}}, path)
+    with pytest.raises(KeyError, match="run.pt"):
+        load_checkpoint(str(path), "cpu")
+
+
 def test_load_checkpoint_roundtrips(tmp_path):
     # The checkpoint format every consumer reads: {"cfg", "state"} -> eval model
     # with identical weights. A shape/name drift here silently loads garbage.

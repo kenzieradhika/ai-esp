@@ -355,6 +355,11 @@ def load_checkpoint(path, device="cpu"):
     consumer (sample/chat/quantize) reconstructs the same way, so keep it here.
     """
     ck = torch.load(path, map_location=device, weights_only=False)
+    # A truncated or foreign .pt gives a bare KeyError('cfg'); name the file so
+    # the failure points at the checkpoint, not at this line.
+    missing = [k for k in ("cfg", "state") if k not in ck]
+    if missing:
+        raise KeyError(f"{path} is not a checkpoint: missing {missing}")
     model = TinyLM(Config(**ck["cfg"])).to(device)
     model.load_state_dict(ck["state"])
     model.eval()
