@@ -32,11 +32,16 @@ def find_port():
     env = os.environ.get("ESP32_PORT")
     if env:
         return env
-    for p in serial.tools.list_ports.comports():
+    ports = list(serial.tools.list_ports.comports())
+    for p in ports:
         if "303A" in p.hwid:  # Espressif (ESP32-S3 native USB)
             return p.device
-    for p in serial.tools.list_ports.comports():
-        if "usb" in p.device.lower() or "com" in p.device.lower():
+    # Fallback: a USB serial device by name. Match known prefixes rather than a
+    # bare "com" substring -- that also matches /dev/rfcomm0 (Bluetooth) and
+    # could hijack the connection to the wrong port.
+    for p in ports:
+        base = os.path.basename(p.device).lower()
+        if base.startswith(("com", "ttyusb", "ttyacm", "cu.", "usbserial", "wchusbserial")):
             return p.device
     return None
 
