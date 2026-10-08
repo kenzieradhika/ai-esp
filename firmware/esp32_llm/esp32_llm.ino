@@ -729,7 +729,11 @@ static void run_generation() {
 
   int pids[MAX_PROMPT_TOKENS];
   int n_prompt = bpe_tokenize(story_line, pids, MAX_PROMPT_TOKENS);
-  if (n_prompt > model.c.seq_len - 32) n_prompt = model.c.seq_len - 32;
+  // Leave headroom for generation, but never let a small seq_len drive the
+  // clamp negative -- that would silently skip priming entirely.
+  int max_prompt = model.c.seq_len - 32;
+  if (max_prompt < 0) max_prompt = 0;
+  if (n_prompt > max_prompt) n_prompt = max_prompt;
 
   // ---- generate ----
   Serial.print(">>> ");
