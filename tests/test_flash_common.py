@@ -44,3 +44,31 @@ def test_skips_newest_dir_without_a_binary(tmp_path, monkeypatch):
 def test_returns_none_when_no_builds(tmp_path, monkeypatch):
     monkeypatch.setattr(_flash_common, "APPDATA", str(tmp_path))
     assert _flash_common.latest_build() is None
+
+
+def test_pulse_en_and_read_closes_port_on_error(monkeypatch):
+    # If the board is unplugged mid-reset, the serial handle must still close:
+    # a leaked handle blocks the next open() on Windows.
+    import sys
+    import types
+
+    closed = []
+
+    class FakeSerial:
+        def __init__(self, *a, **k):
+            pass
+
+        def setDTR(self, v):
+            raise OSError("board gone")
+
+        def close(self):
+            closed.append(True)
+
+    fake = types.ModuleType("serial")
+    fake.Serial = FakeSerial
+    monkeypatch.setitem(sys.modules, "serial", fake)
+    try:
+        _flash_common.pulse_en_and_read("COM1")
+    except OSError:
+        pass
+    assert closed == [True]

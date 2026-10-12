@@ -39,18 +39,21 @@ def pulse_en_and_read(port, settle_s=0.25, idle_s=1.0, max_s=6.0):
     import serial  # lazy: keeps this module importable without pyserial installed
 
     ser = serial.Serial(port, 115200, timeout=0.2)
-    ser.setDTR(False)
-    ser.setRTS(True)   # EN low -> chip in reset
-    time.sleep(settle_s)
-    ser.setRTS(False)  # release EN -> boot
+    try:
+        ser.setDTR(False)
+        ser.setRTS(True)   # EN low -> chip in reset
+        time.sleep(settle_s)
+        ser.setRTS(False)  # release EN -> boot
 
-    log = b""
-    deadline = time.time() + max_s
-    while time.time() < deadline:
-        chunk = ser.read(4096)
-        if chunk:
-            log += chunk
-            deadline = time.time() + idle_s
-
-    ser.close()
-    return log
+        log = b""
+        deadline = time.time() + max_s
+        while time.time() < deadline:
+            chunk = ser.read(4096)
+            if chunk:
+                log += chunk
+                deadline = time.time() + idle_s
+        return log
+    finally:
+        # Close even if the port dies mid-reset (unplugged board), so the handle
+        # is not leaked and a retry can reopen it.
+        ser.close()
