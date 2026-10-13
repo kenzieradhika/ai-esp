@@ -27,3 +27,19 @@ def test_core_close_to_model():
     t = tiers(VOCAB, D, L, P, F)
     b = TinyLM(_cfg("ple")).param_budget()
     assert abs(t["core"] - b["core"]) / b["core"] < 0.05
+
+
+def test_report_rejects_sub_byte_width(capsys):
+    # bits/8 == 0 would make the bandwidth ceiling divide by zero; main() must
+    # reject it up front with a usage error, not crash mid-report.
+    import budget
+
+    try:
+        import sys
+
+        sys.argv = ["budget", "--bits", "0"]
+        budget.main()
+    except SystemExit as e:
+        assert e.code != 0
+    else:
+        raise AssertionError("expected SystemExit for --bits 0")

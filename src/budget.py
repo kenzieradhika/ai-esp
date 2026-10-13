@@ -76,6 +76,10 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--bits", type=int, default=4)
     args = ap.parse_args()
+    if args.bits < 1:
+        # bits/8 == 0 makes both transfer times 0 and the bandwidth ceiling
+        # divides by zero; a sub-byte width is not a thing this models.
+        ap.error("--bits must be >= 1")
 
     print(f"\nESP32-S3 N16R8: {SRAM_BYTES // 1024}KB usable SRAM, "
           f"{FLASH_BYTES // 1024 // 1024}MB usable flash, "
