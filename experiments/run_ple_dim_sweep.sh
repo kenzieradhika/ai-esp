@@ -6,10 +6,11 @@
 # core overhead = 2 * d_model(128) * ple_dim * n_layers  -- grows with ple_dim,
 # so the auto-solver shrinks the FFN to compensate. The sweep therefore measures
 # a real tradeoff: more table capacity bought with less compute capacity.
-set -euo pipefail
+set -uo pipefail
 cd "$(dirname "$0")/.."
+log() { echo "[$(date '+%m-%d %H:%M')] $*"; }
 for pd in 16 32 128 256; do
-  echo "=== ple_dim=$pd ==="
+  log "=== ple_dim=$pd ==="
   uv run python src/train.py --arm ple --steps 3000 --target-core 1500000 \
-      --ple-dim "$pd" --seed 0 --tag "d$pd"
+      --ple-dim "$pd" --seed 0 --tag "d$pd" 2>&1 || log "!! FAILED: ple_dim=$pd"
 done

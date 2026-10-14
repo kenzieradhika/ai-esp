@@ -49,6 +49,10 @@ All notable changes to this project. Format loosely follows Keep a Changelog.
 - `pyproject.toml`: real description, declared `pandas`/`pyarrow`/`pyserial`
   (used by `data/prepare_id.py` and `firmware/prompt_ui.py`), pytest config.
 - Stopped tracking `training.log`; `*.log` is ignored.
+- `experiments/run_ablation.sh`, `run_seed1.sh`, and `run_ple_dim_sweep.sh` no
+  longer `set -e`: a single failed arm logs and the sweep continues, matching
+  `overnight.sh`/`deploy_seed1.sh`. Each arm writes its own run JSON, so one
+  failure should lose only that arm.
 - CI lints and byte-compiles `tests/` and every `firmware/*.py` helper;
   `make verify` also builds the ppl probe, matching CI.
 - README repo structure now lists the C verifier and test directories.
