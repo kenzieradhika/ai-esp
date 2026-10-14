@@ -21,6 +21,12 @@ from train import get_device
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 
+def is_exit(line):
+    """True when the user asked to stop. Case-insensitive, so 'Keluar' / 'QUIT'
+    quit too, matching how the firmware matches its command words."""
+    return line.strip().lower() in ("", "keluar", "exit", "quit")
+
+
 def reply(model, tok, line, max_tokens, temperature, top_k, device):
     prompt = f"user: {line}\nJawaban:"
     ids = torch.tensor([tok.encode(prompt).ids], device=device)
@@ -53,7 +59,7 @@ def main():
                 line = input("user: ").strip()
             except EOFError:
                 break
-            if not line or line in ("keluar", "exit", "quit"):
+            if is_exit(line):
                 break
             print("Jawaban:", reply(model, tok, line, args.tokens,
                                     args.temperature, args.top_k, device), "\n")
