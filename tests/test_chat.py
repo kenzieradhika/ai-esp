@@ -7,7 +7,7 @@ and it is easy to get wrong when the tokenizer round-trip is not byte-exact.
 
 import torch
 
-from chat import reply
+from chat import is_exit, reply
 
 
 class FakeTok:
@@ -55,3 +55,21 @@ def test_reply_without_echo_returns_full_text():
     # return the model's text rather than an empty string.
     out = reply(EchoModel("jawaban", echo_prompt=False), FakeTok(), "halo", 5, 0.8, 40, "cpu")
     assert out == "jawaban"
+
+
+def test_is_exit_is_case_insensitive():
+    # The firmware matches its command words case-insensitively; the REPL should
+    # not make the user guess the exact case to quit.
+    assert is_exit("keluar") and is_exit("Keluar") and is_exit("QUIT")
+    assert is_exit("exit") and is_exit("Exit")
+
+
+def test_is_exit_ignores_surrounding_space():
+    assert is_exit("  keluar  ")
+    assert not is_exit("keluar nanti")
+
+
+def test_is_exit_treats_blank_line_as_stop():
+    # main() breaks on an empty line so a stray Enter ends the session.
+    assert is_exit("") and is_exit("   ")
+
