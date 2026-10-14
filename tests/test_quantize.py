@@ -70,6 +70,15 @@ def test_val_loss_names_a_too_short_val_bin(tmp_path, monkeypatch):
         quantize.val_loss(None, 4096, "cpu", iters=1, bs=1, sl=16)
 
 
+def test_quantize_groupwise_rejects_sub_byte_width():
+    # bits=0 makes qmax=0 and the scale max|w|/0 -> every weight inf/nan. Fail
+    # with a clear message instead of returning a poisoned tensor.
+    import pytest
+
+    with pytest.raises(ValueError, match="bits"):
+        quantize_groupwise(torch.randn(4, 32), bits=0, group=32)
+
+
 def test_simulator_and_exporter_agree():
     # Same math, two implementations: the group-64 simulator and the group-64
     # exporter must reconstruct the same weights (fp16 scales differ by design in

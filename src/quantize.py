@@ -36,6 +36,10 @@ def quantize_groupwise(w, bits=4, group=DEFAULT_GROUP, fp16_scales=False):
     Simulates storage in `bits` with one fp scale per `group` consecutive weights
     of each row -- the standard edge format. qmax = 2^(bits-1)-1.
     """
+    if bits < 1:
+        # qmax = 2^(bits-1)-1 is 0 for bits=0, so the scale below is max|w|/0 and
+        # every dequantized weight becomes inf/nan. Not a width this models.
+        raise ValueError(f"bits must be >= 1, got {bits}")
     orig_shape = w.shape
     x = w.reshape(-1, orig_shape[-1]).float()
     out, cols = x.shape
