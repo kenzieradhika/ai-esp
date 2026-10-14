@@ -59,7 +59,14 @@ def main():
     connected = False
     deadline = time.time() + 120
     while time.time() < deadline:
-        r = subprocess.run(probe, capture_output=True, text=True, timeout=20)
+        # A probe against a chip still booting can hang past the timeout. That is
+        # the normal case while the user is still holding BOOT, so retry instead
+        # of letting TimeoutExpired kill the wait loop with a traceback.
+        try:
+            r = subprocess.run(probe, capture_output=True, text=True, timeout=20)
+        except subprocess.TimeoutExpired:
+            sys.stdout.write("T"); sys.stdout.flush()
+            continue
         out = r.stdout + r.stderr
         if "Chip is ESP32-S3" in out:
             connected = True
