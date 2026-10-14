@@ -84,7 +84,16 @@ def main():
     args = ap.parse_args()
     tag = args.tag
     os.makedirs(OUT, exist_ok=True)
-    ck = torch.load(os.path.join(RUNS, f"{tag}.pt"), map_location="cpu", weights_only=False)
+    ckpt = os.path.join(RUNS, f"{tag}.pt")
+    # torch.load on a missing path raises a bare FileNotFoundError naming a temp
+    # path, and a foreign .pt raises KeyError('cfg') at the line below. Name the
+    # checkpoint either way.
+    if not os.path.exists(ckpt):
+        raise SystemExit(f"no checkpoint at {ckpt}; train the run first")
+    ck = torch.load(ckpt, map_location="cpu", weights_only=False)
+    missing = [k for k in ("cfg", "state") if k not in ck]
+    if missing:
+        raise SystemExit(f"{ckpt} is not a checkpoint: missing {missing}")
     cfg = Config(**ck["cfg"])
     # The C runtime (llm.h) implements exactly the `ple` tensor set: a per-layer
     # projection + lookup table, tied head, no bottom-only emb_down. Any other arm
