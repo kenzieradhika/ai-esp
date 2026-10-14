@@ -1,12 +1,13 @@
 # Convenience targets. The Python side runs from src/ (flat imports); the C
 # side is verified on the host before anything is flashed.
 
-.PHONY: help test lint verify build clean
+.PHONY: help test lint verify check build clean
 
 help:
 	@echo "make test    - run the pytest suite"
 	@echo "make lint    - run ruff over the Python sources"
 	@echo "make verify  - build + run the host C runtime checks"
+	@echo "make check   - lint + test + verify (everything CI runs)"
 	@echo "make build   - compile the ESP32-S3 sketch (arduino-cli)"
 	@echo "make clean   - remove __pycache__ and test binaries"
 
@@ -15,6 +16,10 @@ test:
 
 lint:
 	uv run ruff check src data firmware tests
+
+# One command for the same gate CI enforces: lint, then the Python suite, then
+# the host C checks. Ordered so the cheap failure comes first.
+check: lint test verify
 
 verify:
 	cc -O3 -Wall -Wextra -Werror -o /tmp/esp-verify firmware/host_verify/verify.c -lm

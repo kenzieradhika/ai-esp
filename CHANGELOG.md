@@ -18,6 +18,8 @@ All notable changes to this project. Format loosely follows Keep a Changelog.
 - `firmware/_flash_common.py`: shared Arduino build lookup, esptool paths, and
   the EN-pulse boot-log capture used by `bootlog.py` / `reset_download.py`.
 - `sample.py --top-k`, matching `chat.py`'s decoding knob.
+- `make check`: one target running lint, the pytest suite, and the host C
+  checks in that order — the same gate CI enforces.
 
 ### Fixed
 - `make_model("bigcore", ...)` no longer crashes (None config) when even the
