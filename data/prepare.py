@@ -39,6 +39,12 @@ def download():
                 if got % (25 << 20) < (1 << 20):
                     print(f"  {got / 1e6:.0f}MB", flush=True)
     print(f"done, {got / 1e6:.0f}MB")
+    # A dropped connection ends the chunk loop early with `got` well under the
+    # slice. Left unchecked, the next stage trains a tokenizer and bins on a
+    # fraction of the corpus and every downstream number is quietly wrong.
+    if got < SLICE_BYTES * 0.99:
+        raise RuntimeError(
+            f"download got {got} of {SLICE_BYTES} bytes; rerun to finish")
 
 
 def train_tokenizer(text):
