@@ -76,3 +76,18 @@ def test_val_batcher_is_deterministic(tmp_path, monkeypatch):
     a = train.Batcher("val", 4, 8, "cpu")()
     b = train.Batcher("val", 4, 8, "cpu")()
     assert (a[0] == b[0]).all() and (a[1] == b[1]).all()
+
+
+def test_main_rejects_zero_batch_size(monkeypatch):
+    # --batch-size 0 makes np.stack() raise "need at least one array"; main()
+    # must reject it as a usage error before touching any data file.
+    import sys
+
+    import pytest
+
+    import train
+
+    monkeypatch.setattr(sys, "argv",
+                        ["train.py", "--arm", "baseline", "--batch-size", "0"])
+    with pytest.raises(SystemExit):
+        train.main()
