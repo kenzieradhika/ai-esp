@@ -187,6 +187,13 @@ static void test_load_rejects_bad_header(void) {
   memcpy(buf + 4, bad_heads, 32);
   CHECK(llm_load(buf, &m) == -1, "n_heads not dividing dim must be rejected");
 
+  // D=8, H=8 -> head_dim=1 (odd). Divides evenly, so the old checks pass, but
+  // split-half RoPE needs an even head dim; the Dh/2 loops would drop the last
+  // element of every head.
+  int32_t odd_head_dim[8] = {16, 8, 1, 8, 16, 8, 8, 8};
+  memcpy(buf + 4, odd_head_dim, 32);
+  CHECK(llm_load(buf, &m) == -1, "odd head_dim must be rejected");
+
   int32_t zero_dim[8] = {16, 0, 1, 2, 16, 8, 8, 8};
   memcpy(buf + 4, zero_dim, 32);
   CHECK(llm_load(buf, &m) == -1, "zero dim must be rejected");
