@@ -79,6 +79,14 @@ def test_quantize_groupwise_rejects_sub_byte_width():
         quantize_groupwise(torch.randn(4, 32), bits=0, group=32)
 
 
+def test_quantize_groupwise_rejects_non_positive_group():
+    # pad = (group - cols % group) % group divides by zero for group=0.
+    import pytest
+
+    with pytest.raises(ValueError, match="group"):
+        quantize_groupwise(torch.randn(4, 32), bits=4, group=0)
+
+
 def test_quant_pack_rejects_non_positive_group():
     # n_groups = ceil(cols/group) divides by zero for group=0; reject instead of
     # raising a bare ZeroDivisionError deep in the packing loop.
