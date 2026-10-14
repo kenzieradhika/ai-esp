@@ -27,6 +27,11 @@ def main():
                     help="path to the BPE tokenizer json matching the checkpoint")
     args = ap.parse_args()
 
+    # `range(args.samples)` with 0/negative prints the header and exits 0 with no
+    # output, which reads as a broken model rather than a bad flag.
+    if args.samples < 1:
+        ap.error("--samples must be >= 1")
+
     torch.manual_seed(args.seed)
     device = get_device()
     model = load_checkpoint(args.run, device)
