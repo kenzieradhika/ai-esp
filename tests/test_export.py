@@ -45,3 +45,24 @@ def test_export_rejects_prompt_ids_past_the_vocab(tmp_path, monkeypatch):
     with pytest.raises(SystemExit, match="vocab_size"):
         export.main()
     assert not (tmp_path / "out" / "model.bin").exists()
+
+
+def test_export_names_a_missing_checkpoint(tmp_path, monkeypatch):
+    # torch.load on a missing path raises FileNotFoundError pointing at a temp
+    # path; the message must name the checkpoint under runs/ instead.
+    monkeypatch.setattr(export, "RUNS", str(tmp_path))
+    monkeypatch.setattr(export, "OUT", str(tmp_path / "out"))
+    monkeypatch.setattr(sys, "argv", ["export.py", "absent"])
+    with pytest.raises(SystemExit, match="absent.pt"):
+        export.main()
+
+
+def test_export_names_a_foreign_checkpoint(tmp_path, monkeypatch):
+    # A .pt that is not one of our checkpoints (no cfg/state) would KeyError at
+    # the config line; name the file and the missing keys instead.
+    torch.save({"something": 1}, tmp_path / "run.pt")
+    monkeypatch.setattr(export, "RUNS", str(tmp_path))
+    monkeypatch.setattr(export, "OUT", str(tmp_path / "out"))
+    monkeypatch.setattr(sys, "argv", ["export.py", "run"])
+    with pytest.raises(SystemExit, match="not a checkpoint"):
+        export.main()
