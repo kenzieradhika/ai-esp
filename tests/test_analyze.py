@@ -57,6 +57,15 @@ def test_load_names_the_file_when_a_run_has_no_arm(tmp_path, monkeypatch):
         analyze.load()
 
 
+def test_load_names_the_file_when_final_val_is_missing(tmp_path, monkeypatch):
+    # An old-schema run (has arm+params, no final_val) would KeyError deep in the
+    # summary loop; load() must name the file instead.
+    (tmp_path / "run0.json").write_text(json.dumps({"arm": "ple", "params": {}}))
+    monkeypatch.setattr(analyze, "RUNS", str(tmp_path))
+    with pytest.raises(KeyError, match="run0.json"):
+        analyze.load()
+
+
 def test_main_says_so_when_there_are_no_runs(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(analyze, "RUNS", str(tmp_path))
     analyze.main()
