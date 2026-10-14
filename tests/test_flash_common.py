@@ -72,3 +72,44 @@ def test_pulse_en_and_read_closes_port_on_error(monkeypatch):
     except OSError:
         pass
     assert closed == [True]
+
+
+def test_pulse_en_and_read_honours_max_s_when_chip_never_idles(monkeypatch):
+    # A chip that keeps talking would, with a single overwritten deadline, extend
+    # the reset forever. The absolute max_s cap must still end the read.
+    import sys
+    import types
+
+    class ChattySerial:
+        def __init__(self, *a, **k):
+            pass
+
+        def setDTR(self, v):
+            pass
+
+        def setRTS(self, v):
+            pass
+
+        def read(self, n):
+            return b"x"  # always data -> idle never reached
+
+        def close(self):
+            pass
+
+    clock = {"t": 0.0}
+
+    def fake_time():
+        clock["t"] += 0.1
+        return clock["t"]
+
+    fake = types.ModuleType("serial")
+    fake.Serial = ChattySerial
+    monkeypatch.setitem(sys.modules, "serial", fake)
+    monkeypatch.setattr(_flash_common.time, "time", fake_time)
+    monkeypatch.setattr(_flash_common.time, "sleep", lambda s: None)
+
+    log = _flash_common.pulse_en_and_read("COM1", settle_s=0, idle_s=1.0, max_s=2.0)
+    # Bounded by max_s / 0.1 step, not unbounded: the loop stopped while the chip
+    # was still sending.
+    assert 0 < len(log) <= 25
+
