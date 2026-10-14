@@ -693,7 +693,8 @@ static void run_generation() {
   int n_gen = N_GENERATE;
   char *story_line;
   char full[768];
-  if (strncmp(line, "story:", 6) == 0) {
+  const char *story_pre = str_ci_str(line, "story:");
+  if (line == story_pre) {  // "story:" must be the very start of the line
     char *s = line + 6;
     while (*s == ' ') s++;
     // Personalization: seed the request with the user's name/likes if known.
