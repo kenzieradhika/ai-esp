@@ -46,12 +46,18 @@ def pulse_en_and_read(port, settle_s=0.25, idle_s=1.0, max_s=6.0):
         ser.setRTS(False)  # release EN -> boot
 
         log = b""
-        deadline = time.time() + max_s
-        while time.time() < deadline:
+        # Two deadlines: `idle` is pushed out on every chunk (log ends once the
+        # chip is quiet for idle_s), `hard` is the absolute cap from max_s. Keeping
+        # them separate matters -- a chip that never goes idle for idle_s would
+        # otherwise extend the reset forever, since the old code overwrote the
+        # single deadline on each read.
+        hard = time.time() + max_s
+        idle = hard
+        while time.time() < idle:
             chunk = ser.read(4096)
             if chunk:
                 log += chunk
-                deadline = time.time() + idle_s
+                idle = min(time.time() + idle_s, hard)
         return log
     finally:
         # Close even if the port dies mid-reset (unplugged board), so the handle
