@@ -236,6 +236,10 @@ static int llm_load(const uint8_t *base, Model *m) {
   if (V <= 0 || D <= 0 || L <= 0 || F <= 0 || P <= 0) return -1;
   if (L > LLM_MAX_LAYERS) return -1;
   if (m->c.n_heads <= 0 || D % m->c.n_heads) return -1;
+  // Split-half RoPE rotates (x1, x2) pairs, so head_dim must be even; src/model.py
+  // rejects an odd one too. Without this the Dh/2 loops below silently drop the
+  // last element of every head and the logits stop matching the golden.
+  if ((D / m->c.n_heads) % 2) return -1;
   if (m->c.seq_len <= 0 || m->c.group <= 0) return -1;
   if (D > LLM_ACT_BUF || F > LLM_ACT_BUF || P > LLM_ACT_BUF) return -1;
   // RoPE reuses the (L*P) table row buffer for Dh/2 cos + Dh/2 sin values.
