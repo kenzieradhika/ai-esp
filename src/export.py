@@ -43,6 +43,10 @@ def quant_pack(w, group=GROUP):
     fp16 *before* computing dq so the golden matches the C exactly. dq is the
     dequantized fp32 tensor the C reconstructs.
     """
+    if group < 1:
+        # n_groups = ceil(cols/group) divides by zero for group=0, and a negative
+        # group yields a negative n_groups -> nonsense scales. Reject up front.
+        raise ValueError(f"group must be >= 1, got {group}")
     w = w.float()
     out_shape = w.shape
     x = w.reshape(-1, out_shape[-1])
