@@ -79,6 +79,15 @@ def test_quantize_groupwise_rejects_sub_byte_width():
         quantize_groupwise(torch.randn(4, 32), bits=0, group=32)
 
 
+def test_quant_pack_rejects_non_positive_group():
+    # n_groups = ceil(cols/group) divides by zero for group=0; reject instead of
+    # raising a bare ZeroDivisionError deep in the packing loop.
+    import pytest
+
+    with pytest.raises(ValueError, match="group"):
+        quant_pack(torch.randn(4, 32), group=0)
+
+
 def test_simulator_and_exporter_agree():
     # Same math, two implementations: the group-64 simulator and the group-64
     # exporter must reconstruct the same weights (fp16 scales differ by design in
