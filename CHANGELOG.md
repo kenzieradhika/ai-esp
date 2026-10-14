@@ -44,6 +44,18 @@ All notable changes to this project. Format loosely follows Keep a Changelog.
   `n/a` instead of dividing by a zero fp32 edge.
 - `stage_head_int8` refuses a multi-group or over-wide head instead of
   mis-scaling or overrunning `head_actq`.
+- `export.py` names a missing or foreign checkpoint (no `cfg`/`state`) instead of
+  a bare `FileNotFoundError`/`KeyError`; `sample.py` rejects `--samples < 1`;
+  `chat.py`'s REPL stop words are case-insensitive.
+- `prepare.py` fails when the corpus download truncates instead of training on a
+  partial slice.
+- `firmware/_flash_common.py`: `pulse_en_and_read` keeps a separate `max_s` cap,
+  so a chip that never idles for `idle_s` no longer extends the EN-pulse reset
+  forever.
+- `firmware/flash_windows.py` retries a probe `TimeoutExpired` like
+  `flash_download_loop.py`, instead of dying mid-BOOT-hold.
+- `llm.h`: `llm_load` rejects an odd `head_dim` (split-half RoPE needs even),
+  matching `model.py:Config`.
 - Firmware stats and `Config` dims no longer divide by zero on empty/degenerate
   input.
 
