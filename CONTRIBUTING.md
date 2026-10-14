@@ -18,11 +18,11 @@ measurements".
 ## Before you push
 
 ```bash
-uv run pytest -q
-cc -O3 -Wall -Wextra -Werror -o /tmp/verify firmware/host_verify/verify.c -lm
+make check
 ```
 
-Both must be clean. CI runs the same, plus an arduino-cli firmware build.
+Runs lint, the pytest suite, and the host C checks in one shot — the same gate
+CI enforces. Both must be clean. CI also builds the firmware with arduino-cli.
 
 ## Style
 
